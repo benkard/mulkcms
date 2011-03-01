@@ -12,4 +12,7 @@
 (defparameter *static-files* "/var/mulkcms/static-files")
 (defparameter *templates* "/var/mulkcms/templates")
 
-(defparameter *base-uri* "http://mulkcms.example.org/")
+(defparameter *base-uri* "http://127.0.0.1:9201/")
+
+(defparameter *server-address* "127.0.0.1")
+(defparameter *server-port* 9201)
