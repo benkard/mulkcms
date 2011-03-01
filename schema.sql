@@ -24,25 +24,19 @@ CREATE TABLE users(
 
 CREATE TABLE passwords(
   "user"   INTEGER NOT NULL,
-  id       INTEGER NOT NULL,
   password VARCHAR NOT NULL,
-  PRIMARY KEY ("user", id),
   FOREIGN KEY ("user") REFERENCES users
 );  
 
 CREATE TABLE openids(
   "user" INTEGER NOT NULL,
-  id     INTEGER NOT NULL,
   openid VARCHAR NOT NULL,
-  PRIMARY KEY ("user", id),
   FOREIGN KEY ("user") REFERENCES users
 );  
 
 CREATE TABLE login_certificates(
   "user"      INTEGER NOT NULL,
-  id          INTEGER NOT NULL,
   certificate BYTEA NOT NULL,
-  PRIMARY KEY ("user", id),
   FOREIGN KEY ("user") REFERENCES users
 );
 
@@ -61,53 +55,50 @@ CREATE TABLE article_aliases(
 CREATE TABLE comments(
   id      SERIAL  NOT NULL,
   article INTEGER NOT NULL,
-  PRIMARY KEY (id, article),
+  PRIMARY KEY (id),
   FOREIGN KEY (article) REFERENCES articles
 );
 
 CREATE TABLE article_revisions(
+  id        SERIAL    NOT NULL,
   article   INTEGER   NOT NULL,
-  id        INTEGER   NOT NULL,
   date      TIMESTAMP DEFAULT now(),
   title     VARCHAR   NOT NULL,
   content   VARCHAR   NOT NULL,
   author    INTEGER,
   format    varchar   NOT NULL,
-  PRIMARY KEY (article, id),
+  PRIMARY KEY (id),
   FOREIGN KEY (article) REFERENCES articles,
   FOREIGN KEY (author)  REFERENCES users,
   CHECK (format IN ('html'))
 );
 
 CREATE TABLE article_revision_characteristics(
-  article        INTEGER NOT NULL,
   revision       INTEGER NOT NULL,
   characteristic VARCHAR NOT NULL,
   value          VARCHAR,
-  FOREIGN KEY (article, revision) REFERENCES article_revisions
+  FOREIGN KEY (revision) REFERENCES article_revisions
 );
 
 CREATE TABLE article_revision_parenthood(
-  article   INTEGER NOT NULL,
   parent_id INTEGER NOT NULL,
   child_id  INTEGER NOT NULL,
-  FOREIGN KEY (article, parent_id) REFERENCES article_revisions,
-  FOREIGN KEY (article, child_id)  REFERENCES article_revisions
+  FOREIGN KEY (parent_id) REFERENCES article_revisions,
+  FOREIGN KEY (child_id)  REFERENCES article_revisions
 );
 
 CREATE TABLE comment_revisions(
-  article          INTEGER   NOT NULL,
-  comment_id       INTEGER   NOT NULL,
-  id               INTEGER   NOT NULL,
+  id               SERIAL    NOT NULL,
+  comment          INTEGER   NOT NULL,
   date             TIMESTAMP DEFAULT now(),
   content          VARCHAR   NOT NULL,
   author           INTEGER,
   format           VARCHAR   NOT NULL,
   status           VARCHAR   NOT NULL,
   article_revision INTEGER,
-  PRIMARY KEY (article, comment_id, id),
-  FOREIGN KEY (article, comment_id) REFERENCES comments,
-  FOREIGN KEY (author)              REFERENCES users,
+  PRIMARY KEY (id),
+  FOREIGN KEY (comment) REFERENCES comments,
+  FOREIGN KEY (author)  REFERENCES users,
   CHECK (status IN ('pending', 'approved', 'trusted', 'deferred', 'spam',
                     'rejected')),
   CHECK (format IN ('text'))
