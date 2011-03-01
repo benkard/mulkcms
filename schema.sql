@@ -1,5 +1,18 @@
 BEGIN TRANSACTION;
 
+-- For PostgreSQL 9.1 upward, we should consider using enum types
+-- instead of VARCHARs with CHECK constraints:
+--
+-- CREATE TYPE user_status AS
+--   ENUM ('pending', 'approved', 'trusted', 'deferred', 'disabled', 'admin');
+--
+-- CREATE TYPE comment_status AS
+--   ENUM ('pending', 'approved', 'trusted', 'deferred', 'spam', 'rejected');
+--
+-- CREATE TYPE text_format AS
+--   ENUM ('html', 'text');
+
+
 CREATE TABLE users(
   id     SERIAL  NOT NULL,
   name   VARCHAR,
