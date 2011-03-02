@@ -1,0 +1,35 @@
+<article>
+  <h1><a href="{link|html-attr-value}">{title|html}</a></h1>
+
+  <div class="article-header">
+    <header>
+      <span class="article-date">
+        <time pubdate="pubdate" datetime="{publishing_date|html_iso_date}">
+          {publishing_date|html_human_date}
+        </time>
+      </span>
+    </header>
+  </div>
+
+  <div class="article-body">
+    {body}
+  </div>
+
+  <div class="article-footer">
+    <footer>
+      <form class="article-edit-button-form"
+            style="display: inline;"
+            action="{edit-link|html-attr-value}"
+            method="get">
+        <div style="display: inline;">
+          <input name="id" type="hidden" value="106" />
+          <input type="submit" value="{edit-button-label|html-attr-value}" />
+        </div>
+      </form>
+      |
+      <a href="{comment-feed|html-attr-value}">{comment-feed-label|html}</a>
+      |
+      <a href="{comment-feed|html-attr-value}">{comments-label|html}</a>
+    </footer>
+  </div>
+</article>

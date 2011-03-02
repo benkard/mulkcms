@@ -1,6 +1,6 @@
 (cl:defpackage #:mulkcms
   (:use #:common-lisp #:split-sequence #:alexandria #:cl-fad #:cl-who
-        #:cl-ppcre #:postmodern)
+        #:cl-ppcre #:postmodern #:json-template)
   (:shadow #:copy-file #:copy-stream)
   (:export #:*base-uri*
            #:*static-files*
