@@ -25,18 +25,21 @@ CREATE TABLE users(
 CREATE TABLE passwords(
   "user"   INTEGER NOT NULL,
   password VARCHAR NOT NULL,
+  PRIMARY KEY ("user", password),
   FOREIGN KEY ("user") REFERENCES users
 );  
 
 CREATE TABLE openids(
   "user" INTEGER NOT NULL,
   openid VARCHAR NOT NULL,
+  PRIMARY KEY ("user", openid),
   FOREIGN KEY ("user") REFERENCES users
 );  
 
 CREATE TABLE login_certificates(
   "user"      INTEGER NOT NULL,
-  certificate BYTEA NOT NULL,
+  certificate BYTEA  NOT NULL,
+  PRIMARY KEY ("user", certificate),
   FOREIGN KEY ("user") REFERENCES users
 );
 
@@ -90,12 +93,14 @@ CREATE TABLE article_revision_characteristics(
   revision       INTEGER NOT NULL,
   characteristic VARCHAR NOT NULL,
   value          VARCHAR,
-  FOREIGN KEY (revision) REFERENCES article_revisions
+  FOREIGN KEY (revision) REFERENCES article_revisions,
+  UNIQUE (revision, characteristic, value)
 );
 
 CREATE TABLE article_revision_parenthood(
   parent_id INTEGER NOT NULL,
   child_id  INTEGER NOT NULL,
+  PRIMARY KEY (parent_id, child_id),
   FOREIGN KEY (parent_id) REFERENCES article_revisions,
   FOREIGN KEY (child_id)  REFERENCES article_revisions
 );
