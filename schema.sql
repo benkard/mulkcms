@@ -77,11 +77,13 @@ CREATE TABLE article_revisions(
   author    INTEGER,
   format    VARCHAR   NOT NULL,
   status    VARCHAR   NOT NULL,
+  global_id VARCHAR,
   PRIMARY KEY (id),
   FOREIGN KEY (article) REFERENCES articles,
   FOREIGN KEY (author)  REFERENCES users,
   CHECK (format IN ('html')),
-  CHECK (status IN ('draft', 'published', 'syndicated'))
+  CHECK (status IN ('draft', 'published', 'syndicated')),
+  UNIQUE (global_id)
 );
 
 CREATE TABLE article_revision_characteristics(
