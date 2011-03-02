@@ -65,8 +65,9 @@ CREATE TABLE article_aliases(
 );
 
 CREATE TABLE comments(
-  id      SERIAL  NOT NULL,
-  article INTEGER NOT NULL,
+  id        SERIAL  NOT NULL,
+  article   INTEGER NOT NULL,
+  global_id VARCHAR,
   PRIMARY KEY (id),
   FOREIGN KEY (article) REFERENCES articles
 );
@@ -106,14 +107,16 @@ CREATE TABLE article_revision_parenthood(
 );
 
 CREATE TABLE comment_revisions(
-  id               SERIAL    NOT NULL,
-  comment          INTEGER   NOT NULL,
-  date             TIMESTAMP DEFAULT now(),
-  content          VARCHAR   NOT NULL,
-  author           INTEGER,
-  format           VARCHAR   NOT NULL,
-  status           VARCHAR   NOT NULL,
-  article_revision INTEGER,
+  id                   SERIAL    NOT NULL,
+  comment              INTEGER   NOT NULL,
+  date                 TIMESTAMP DEFAULT now(),
+  content              VARCHAR   NOT NULL,
+  author               INTEGER,
+  submitter_ip         INET,
+  submitter_user_agent VARCHAR,
+  format               VARCHAR   NOT NULL,
+  status               VARCHAR   NOT NULL,
+  article_revision     INTEGER,
   PRIMARY KEY (id),
   FOREIGN KEY (comment) REFERENCES comments,
   FOREIGN KEY (author)  REFERENCES users,
