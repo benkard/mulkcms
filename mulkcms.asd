@@ -6,7 +6,7 @@
   :serial t
   :version "0.0.1"
   :depends-on (:cl-who :cl-json :alexandria :postmodern :split-sequence
-               :cl-ppcre :cl-fad)
+               :cl-ppcre :cl-fad :cxml)
   :components ((:file "site")
                (:file "package")
                (:file "mulkcms")))
