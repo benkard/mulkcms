@@ -14,12 +14,14 @@ BEGIN TRANSACTION;
 
 
 CREATE TABLE users(
-  id     SERIAL  NOT NULL,
-  name   VARCHAR,
-  status VARCHAR NOT NULL,
+  id      SERIAL  NOT NULL,
+  name    VARCHAR,
+  status  VARCHAR NOT NULL,
+  email   VARCHAR,
+  website VARCHAR,
   PRIMARY KEY (id),
   CHECK (status IN ('pending', 'approved', 'trusted', 'deferred', 'disabled',
-                    'admin'))
+                    'admin', 'visitor'))
 );
 
 CREATE TABLE passwords(
