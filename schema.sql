@@ -98,11 +98,11 @@ CREATE TABLE article_revision_characteristics(
 );
 
 CREATE TABLE article_revision_parenthood(
-  parent_id INTEGER NOT NULL,
-  child_id  INTEGER NOT NULL,
-  PRIMARY KEY (parent_id, child_id),
-  FOREIGN KEY (parent_id) REFERENCES article_revisions,
-  FOREIGN KEY (child_id)  REFERENCES article_revisions
+  parent INTEGER NOT NULL,
+  child  INTEGER NOT NULL,
+  PRIMARY KEY (parent, child),
+  FOREIGN KEY (parent) REFERENCES article_revisions,
+  FOREIGN KEY (child)  REFERENCES article_revisions
 );
 
 CREATE TABLE comment_revisions(
