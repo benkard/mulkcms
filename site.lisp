@@ -9,8 +9,8 @@
 (defparameter *database-user* "mulkcms")
 (defparameter *database-password* "")
 
-(defparameter *static-files* "/var/mulkcms/static-files")
-(defparameter *templates* "/var/mulkcms/templates")
+(defparameter *static-files* "/var/mulkcms/static-files/")
+(defparameter *templates* "/var/mulkcms/templates/")
 
 (defparameter *base-uri* "http://127.0.0.1:9201/")
 
