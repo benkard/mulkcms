@@ -1,0 +1,15 @@
+{.section head}
+<link rel="stylesheet" type="text/css"
+      href="{root|html-attr-value}/style/journal.css" />
+{.end}
+
+{.section body}
+  <h1 id="main-title">{site-name|html}</h1>
+  <div id="main-subtitle">{site-subtitle|html}</div>
+
+  <div id="articles">
+  {.repeated section articles}
+    {article|article-html}
+  {.end}
+  </div>
+{.end}

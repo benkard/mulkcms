@@ -40,9 +40,18 @@ CREATE TABLE login_certificates(
   FOREIGN KEY ("user") REFERENCES users
 );
 
-CREATE TABLE articles(
-  id SERIAL NOT NULL,
+CREATE TABLE article_types(
+  id            SERIAL NOT NULL,
+  name          VARCHAR,
+  page_template VARCHAR,
   PRIMARY KEY (id)
+);
+
+CREATE TABLE articles(
+  id   SERIAL  NOT NULL,
+  type INTEGER NOT NULL,
+  PRIMARY KEY (id),
+  FOREIGN KEY (type) REFERENCES article_types
 );
 
 CREATE TABLE article_aliases(
@@ -66,11 +75,13 @@ CREATE TABLE article_revisions(
   title     VARCHAR   NOT NULL,
   content   VARCHAR   NOT NULL,
   author    INTEGER,
-  format    varchar   NOT NULL,
+  format    VARCHAR   NOT NULL,
+  status    VARCHAR   NOT NULL,
   PRIMARY KEY (id),
   FOREIGN KEY (article) REFERENCES articles,
   FOREIGN KEY (author)  REFERENCES users,
-  CHECK (format IN ('html'))
+  CHECK (format IN ('html')),
+  CHECK (status IN ('draft', 'published', 'syndicated'))
 );
 
 CREATE TABLE article_revision_characteristics(
