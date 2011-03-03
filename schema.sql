@@ -127,6 +127,27 @@ CREATE TABLE comment_revisions(
   CHECK (format IN ('text'))
 );
 
+CREATE TABLE categories(
+  id   SERIAL  NOT NULL,
+  name VARCHAR NOT NULL,
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE category_inclusions(
+  category      INTEGER NOT NULL,
+  supercategory INTEGER NOT NULL,
+  PRIMARY KEY (category, supercategory),
+  FOREIGN KEY (category)      REFERENCES categories,
+  FOREIGN KEY (supercategory) REFERENCES categories
+);
+
+CREATE TABLE article_category_memberships(
+  article  INTEGER NOT NULL,
+  category VARCHAR NOT NULL,
+  PRIMARY KEY (article, category),
+  FOREIGN KEY (article) REFERENCES articles
+);
+
 CREATE TABLE user_permissions(
   "user"     INTEGER NOT NULL,
   permission VARCHAR NOT NULL,
