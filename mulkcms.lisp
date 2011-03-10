@@ -68,6 +68,41 @@
           finally
             (htm (:p (esc (subseq text last-position)))))))
 
+(defun find-article-revisions (article characteristics &optional fixed-characteristics)
+  ;; CHARACTERISTICS --- a proper list.
+  ;;
+  ;; CHARACTERISTICS is a list of lists of (key . value) pairs.  Each component list
+  ;; is a precedence list of characteristics that are to be considered fallbacks for
+  ;; each other and that will be tried in order.
+  (let* ((fixed-characteristics-conditions
+          (mapcar (lambda (x)
+                    (format nil "AND EXISTS
+                                   (SELECT 1
+                                      FROM article_revision_characteristics
+                                     WHERE revision = article_revisions.id
+                                       AND characteristic = ~A
+                                       AND value = ~A)"
+                            (sql-escape (car x))
+                            (sql-escape (cdr x))))
+                  fixed-characteristics))
+         (query (format nil
+                        "SELECT *
+                           FROM article_revisions
+                          WHERE article = $1~
+                          ~{~&~A~}
+                          ORDER BY date DESC"
+                        fixed-characteristics-conditions)))
+    (when-let ((revisions (query query article :lists)))
+      (if (consp characteristics)
+          (dolist (potential-fixed-characteristic (first characteristics))
+            (when-let ((more-specific-revisions
+                        (find-article-revisions article
+                                                (rest characteristics)
+                                                (cons potential-fixed-characteristic
+                                                      fixed-characteristics))))
+              (return-from find-article-revisions more-specific-revisions)))
+          revisions))))
+
 (defun paramify-comment (comment-revision-data)
   (destructuring-bind (crid comment date content author format status
                        article-revision &rest args)
@@ -96,12 +131,7 @@
                                               WHERE articles.id = $1"
                                             article
                                             :single!))
-                 (revisions (query "SELECT *
-                                      FROM article_revisions
-                                     WHERE article = $1
-                                    ORDER BY date DESC"
-                                   article
-                                   :lists))
+                 (revisions (find-article-revisions article characteristics))
                  (comment-data (query "SELECT id FROM comments WHERE article = $1"
                                       article
                                       :column))
@@ -110,10 +140,10 @@
                              (mapcar (lambda (cid)
                                        (first
                                         (query "SELECT *
-                                               FROM comment_revisions 
-                                               WHERE comment = $1
-                                                 AND status IN ('approved', 'trusted')
-                                               ORDER BY date DESC"
+                                                  FROM comment_revisions 
+                                                 WHERE comment = $1
+                                                   AND status IN ('approved', 'trusted')
+                                                 ORDER BY date DESC"
                                                cid
                                                :lists)))
                                      comment-data)))
