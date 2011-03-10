@@ -38,7 +38,40 @@
   (let ((article-template (template "article")))
     (expand-template article-template article-params)))
 
-(defun find-mulkcms-request-handler (path &optional action)
+(defun paramify-article (revision-data &optional (comments nil commentary-p))
+  (destructuring-bind (rid article date title content author format status
+                       global-id &rest args)
+      revision-data
+    (declare (ignore args rid))
+    (list :publishing-date date
+          :title title
+          :body content
+          ;;FIXME
+          :link ""
+          :commentary (if commentary-p (list :comments comments) nil)
+          :edit-link ""
+          :edit-button-label "Edit"
+          :comment-feed ""
+          :comment-feed-label "Comment feed"
+          :comments-label "Comments"
+          :comments-link ""
+          :comments-heading "Comments")))
+
+(defun paramify-comment (comment-revision-data)
+  (destructuring-bind (crid comment date content author format status
+                       article-revision &rest args)
+      comment-revision-data
+    (declare (ignore args crid article-revision status format comment))
+    (list :publishing-date date
+          :body content
+          :author author
+          ;;FIXME
+          :link ""
+          :edit-link ""
+          :edit-button-label "Edit"
+          :generic-commenter-name "Someone")))
+
+(defun find-mulkcms-request-handler (path &optional action characteristics)
   (with-db
     (when-let ((article (query "SELECT article FROM article_aliases
                                  WHERE alias = $1"
@@ -50,46 +83,45 @@
                                                JOIN article_types
                                                  ON articles.type = article_types.id
                                               WHERE articles.id = $1"
-                                       article
-                                       :single!))
-                 (revisions (query "SELECT author, date, format, status,
-                                           global_id, title, content
+                                            article
+                                            :single!))
+                 (revisions (query "SELECT *
                                       FROM article_revisions
                                      WHERE article = $1
                                     ORDER BY date DESC"
                                    article
                                    :lists))
+                 (comment-data (query "SELECT id FROM comments WHERE article = $1"
+                                      article
+                                      :column))
+                 (comment-revision-data
+                  (remove-if #'null
+                             (mapcar (lambda (cid)
+                                       (first
+                                        (query "SELECT *
+                                               FROM comment_revisions 
+                                               WHERE comment = $1
+                                                 AND status IN ('approved', 'trusted')
+                                               ORDER BY date DESC"
+                                               cid
+                                               :lists)))
+                                     comment-data)))
+                 (comments (mapcar #'paramify-comment comment-revision-data))
                  (revision-data (first revisions))
                  (page-skeleton (template "page_skeleton"))
-                 (page-template (template page-template-name)))
-            (destructuring-bind (author date format status global-id title content)
-                revision-data
-              (let* ((template-params (list :title title
-                                            :root *base-uri*
-                                            :site-name *site-name*
-                                            :site-subtitle ""
-                                            :link ""
-                                            ;; Article stuff
-                                            ))
-                     (article-params (list :publishing-date date
-                                           :title title
-                                           :body content
-                                           ;;FIXME
-                                           :link ""
-                                           :commentary nil
-                                           :edit-link ""
-                                           :edit-button-label "Edit"
-                                           :comment-feed ""
-                                           :comment-feed-label "Comment feed"
-                                           :comments-label "Comments"
-                                           :comments-link ""
-                                           :comments-heading "Comments"))
-                     (head (expand-template page-template (list* :head t
-                                                                 :articles (list article-params)
-                                                                 template-params)))
-                     (body (expand-template page-template (list* :body t
-                                                                 :articles (list article-params)
-                                                                 template-params))))
-                (expand-template page-skeleton (list :title title
-                                                     :head head
-                                                     :body body))))))))))
+                 (page-template (template page-template-name))
+                 (template-params (list :title (fourth revision-data)
+                                        :root *base-uri*
+                                        :site-name *site-name*
+                                        :site-subtitle ""
+                                        :link ""))
+                 (article-params (paramify-article revision-data comments))
+                 (head (expand-template page-template (list* :head t
+                                                             :articles (list article-params)
+                                                             template-params)))
+                 (body (expand-template page-template (list* :body t
+                                                             :articles (list article-params)
+                                                             template-params))))
+            (expand-template page-skeleton (list :title (fourth revision-data)
+                                                 :head head
+                                                 :body body))))))))
