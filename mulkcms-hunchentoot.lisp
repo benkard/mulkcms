@@ -13,13 +13,14 @@
 
 (defun dispatch-mulkcms-request (request)
   (let* ((relative-path (subseq (script-name request) 1)))
-    (mulkcms::find-mulkcms-request-handler relative-path)))
+    (or (mulkcms::find-journal-archive-request-handler relative-path)
+        (mulkcms::find-article-request-handler relative-path))))
 
 (defun setup-handlers ()
   (setq *dispatch-table*
-        (list* 'dispatch-static-file-request
-               (create-prefix-dispatcher "/admin" 'handle-admin-request)
+        (list* (create-prefix-dispatcher "/admin" 'handle-admin-request)
                'dispatch-mulkcms-request
+               'dispatch-static-file-request
                *dispatch-table*))
   (setq *default-handler* 'handle-mulkcms-request))
 

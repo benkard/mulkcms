@@ -117,7 +117,78 @@
           :edit-button-label "Edit"
           :generic-commenter-name "Someone")))
 
-(defun find-mulkcms-request-handler (path &optional action characteristics)
+(defprepared find-journal-articles
+  "SELECT article
+     FROM article_revisions
+    WHERE status IN ('published', 'syndicated')
+    GROUP BY article
+   HAVING EXISTS (SELECT 1 FROM article_aliases
+                   WHERE article = article_revisions.article
+                     AND alias LIKE 'journal/%')
+    ORDER BY min(date) DESC"
+  :column)
+
+(defun find-journal-archive-request-handler (path &optional action characteristics)
+  (declare (ignore action))
+  (when (string= path "journal")
+    (lambda ()
+      (with-db
+        (let* ((articles (find-journal-articles))
+               ;; XXX This is probably horriby inefficient.  We may want
+               ;; to try to get FIND-ARTICLE-REVISIONS into the
+               ;; database as a view or at least a stored procedure.
+               (revisions (remove-if #'null
+                                     (mapcar (lambda (x)
+                                               (find-article-params x characteristics))
+                                             articles)))
+               (displayed-revisions (subseq revisions 0 10))
+               (page-skeleton (template "page_skeleton"))
+               (page-template (template "journal_page"))
+               (template-params (list :title *site-name*
+                                      :root *base-uri*
+                                      :site-name *site-name*
+                                      :site-subtitle ""
+                                      :link ""))
+               (head (expand-template page-template (list* :head t
+                                                           :articles displayed-revisions
+                                                           template-params)))
+               (body (expand-template page-template (list* :body t
+                                                           :articles displayed-revisions
+                                                           template-params))))
+          (expand-template page-skeleton (list :title *site-name*
+                                               :head head
+                                               :body body)))))))
+
+(defun find-article-params (article characteristics &optional commentary-p)
+  (let* ((revisions (find-article-revisions article characteristics))
+         (comment-data (if commentary-p
+                           (query "SELECT id FROM comments WHERE article = $1"
+                                  article
+                                  :column)
+                           (list)))
+         (comment-revision-data
+          (remove-if #'null
+                     (mapcar (lambda (cid)
+                               (first
+                                (query "SELECT *
+                                          FROM comment_revisions 
+                                         WHERE comment = $1
+                                           AND status IN ('approved', 'trusted')
+                                         ORDER BY date DESC"
+                                       cid
+                                       :lists)))
+                             comment-data)))
+         (comments (mapcar #'paramify-comment comment-revision-data))
+         (revision-data (first revisions)))
+    (cond ((null revision-data)
+           nil)
+          (commentary-p
+           (paramify-article revision-data comments))
+          (t
+           (paramify-article revision-data)))))
+
+
+(defun find-article-request-handler (path &optional action characteristics)
   (with-db
     (when-let ((article (query "SELECT article FROM article_aliases
                                  WHERE alias = $1"
@@ -131,38 +202,20 @@
                                               WHERE articles.id = $1"
                                             article
                                             :single!))
-                 (revisions (find-article-revisions article characteristics))
-                 (comment-data (query "SELECT id FROM comments WHERE article = $1"
-                                      article
-                                      :column))
-                 (comment-revision-data
-                  (remove-if #'null
-                             (mapcar (lambda (cid)
-                                       (first
-                                        (query "SELECT *
-                                                  FROM comment_revisions 
-                                                 WHERE comment = $1
-                                                   AND status IN ('approved', 'trusted')
-                                                 ORDER BY date DESC"
-                                               cid
-                                               :lists)))
-                                     comment-data)))
-                 (comments (mapcar #'paramify-comment comment-revision-data))
-                 (revision-data (first revisions))
+                 (article-params (find-article-params article characteristics))
                  (page-skeleton (template "page_skeleton"))
                  (page-template (template page-template-name))
-                 (template-params (list :title (fourth revision-data)
+                 (template-params (list :title (getf article-params :title)
                                         :root *base-uri*
                                         :site-name *site-name*
                                         :site-subtitle ""
                                         :link ""))
-                 (article-params (paramify-article revision-data comments))
                  (head (expand-template page-template (list* :head t
                                                              :articles (list article-params)
                                                              template-params)))
                  (body (expand-template page-template (list* :body t
                                                              :articles (list article-params)
                                                              template-params))))
-            (expand-template page-skeleton (list :title (fourth revision-data)
+            (expand-template page-skeleton (list :title (getf article-params :title)
                                                  :head head
                                                  :body body))))))))
