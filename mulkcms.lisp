@@ -61,13 +61,12 @@
   ;; Taken from Mulkblog.
   (with-html-output-to-string (out)
     (loop for last-position = 0 then (cadr matches)
-          for matches = (ppcre:all-matches "(\\n|\\r|\\r\\n)(\\n|\\r|\\r\\n)+"
-                              text)
+          for matches = (ppcre:all-matches "(\\n|\\r|\\r\\n)(\\n|\\r|\\r\\n)+" text)
             then (cddr matches)
           while (not (endp matches))
           do (htm (:p (esc (subseq text last-position (car matches)))))
           finally
-       (htm (:p (esc (subseq text last-position)))))))
+            (htm (:p (esc (subseq text last-position)))))))
 
 (defun paramify-comment (comment-revision-data)
   (destructuring-bind (crid comment date content author format status
