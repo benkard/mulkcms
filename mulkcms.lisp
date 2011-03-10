@@ -7,6 +7,7 @@
 (unless (member "html-human-date" *template-formatters* :key #'car :test #'equal)
   (setq *template-formatters*
         (list* (cons "html-human-date" 'format-human-date)
+               (cons "html-short-human-date" 'format-short-human-date)
                (cons "html-iso-date"   'format-iso-date)
                (cons "article-html"    'format-article)
                *template-formatters*)))
@@ -22,6 +23,10 @@
   (first (directory (make-pathname :name template-name
                                    :type :wild
                                    :directory *templates*))))
+
+(defun format-short-human-date (date)
+  ;; FIXME
+  "(some date)")
 
 (defun format-human-date (date)
   ;; FIXME
@@ -128,9 +133,10 @@
     ORDER BY min(date) DESC"
   :column)
 
-(defun find-journal-archive-request-handler (path &optional action characteristics)
+(defun find-journal-archive-request-handler (path full-p &optional action characteristics)
   (declare (ignore action))
-  (when (string= path "journal")
+  (when (or (string= path "journal")
+            (string= path "journal/"))
     (lambda ()
       (with-db
         (let* ((articles (find-journal-articles))
@@ -141,19 +147,23 @@
                                      (mapcar (lambda (x)
                                                (find-article-params x characteristics))
                                              articles)))
-               (displayed-revisions (subseq revisions 0 10))
+               (displayed-revisions (if full-p revisions (subseq revisions 0 10)))
                (page-skeleton (template "page_skeleton"))
                (page-template (template "journal_page"))
                (template-params (list :title *site-name*
                                       :root *base-uri*
                                       :site-name *site-name*
                                       :site-subtitle ""
-                                      :link ""))
+                                      :link ""
+                                      :full-archive-link ""
+                                      :full-archive-label "Full archive (slow!)"))
                (head (expand-template page-template (list* :head t
                                                            :articles displayed-revisions
+                                                           :minor-articles revisions
                                                            template-params)))
                (body (expand-template page-template (list* :body t
                                                            :articles displayed-revisions
+                                                           :minor-articles revisions
                                                            template-params))))
           (expand-template page-skeleton (list :title *site-name*
                                                :head head

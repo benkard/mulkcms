@@ -13,7 +13,9 @@
 
 (defun dispatch-mulkcms-request (request)
   (let* ((relative-path (subseq (script-name request) 1)))
-    (or (mulkcms::find-journal-archive-request-handler relative-path)
+    (or (mulkcms::find-journal-archive-request-handler
+         relative-path
+         (assoc "full" (get-parameters*) :test #'equal))
         (mulkcms::find-article-request-handler relative-path))))
 
 (defun setup-handlers ()
