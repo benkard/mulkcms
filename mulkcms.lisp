@@ -73,6 +73,49 @@
           finally
             (htm (:p (esc (subseq text last-position)))))))
 
+#-portable-mulkcms
+(defun make-characteristic-lists (characteristics &aux (first1-p t) (first2-p t))
+  (with-output-to-string (out)
+    (format out "(ARRAY[")
+    (dolist (characteristic-list characteristics)
+      (if first1-p
+          (setq first1-p nil)
+          (format out ", "))
+      (format out "ROW(ARRAY[")
+      (dolist (ch characteristic-list)
+        (if first2-p
+            (setq first2-p nil)
+            (format out ", "))
+        (format out "ROW(~A, ~A)::characteristic"
+                (sql-escape (car ch))
+                (sql-escape (cdr ch))))
+      (format out "])"))
+    (format out "]::characteristic_list[])")))
+
+#-portable-mulkcms
+(defun find-article-revisions (article characteristics)
+  (query (format nil "SELECT article_revisions_for_characteristics($1, ~A)"
+                 (make-characteristic-lists characteristics))
+         article
+         :column))
+
+#-portable-mulkcms
+(defun find-all-revisions (characteristics &optional constraints)
+  (query
+   (format nil
+           "SELECT (most_recent_revision(r)).*
+              FROM (SELECT article_revisions_for_characteristics(a.id, ~A) AS revision
+                      FROM articles a)
+                   AS mr
+              JOIN article_revisions r ON r.id = mr.revision
+             GROUP BY article
+            HAVING ~A
+             ORDER BY (oldest_revision(r)).date"
+           (make-characteristic-lists characteristics)
+           (or constraints "true"))))
+
+
+#+portable-mulkcms
 (defun find-article-revisions (article characteristics &optional fixed-characteristics)
   ;; CHARACTERISTICS --- a proper list.
   ;;
@@ -91,22 +134,60 @@
                             (sql-escape (cdr x))))
                   fixed-characteristics))
          (query (format nil
-                        "SELECT *
+                        "SELECT id
                            FROM article_revisions
                           WHERE article = $1~
                           ~{~&~A~}
                           ORDER BY date DESC"
                         fixed-characteristics-conditions)))
-    (when-let ((revisions (query query article :lists)))
+    (when-let ((revisions (query query article :column)))
       (if (consp characteristics)
-          (dolist (potential-fixed-characteristic (first characteristics))
-            (when-let ((more-specific-revisions
-                        (find-article-revisions article
-                                                (rest characteristics)
-                                                (cons potential-fixed-characteristic
-                                                      fixed-characteristics))))
-              (return-from find-article-revisions more-specific-revisions)))
+          (progn
+            (dolist (potential-fixed-characteristic (first characteristics))
+              (when-let ((more-specific-revisions
+                          (find-article-revisions article
+                                                  (rest characteristics)
+                                                  (cons potential-fixed-characteristic
+                                                        fixed-characteristics))))
+                (return-from find-article-revisions more-specific-revisions)))
+            revisions)
           revisions))))
+
+;;;; Alternative definition.
+;;
+;; #+portable-mulkcms
+;; (defun find-article-revisions (article characteristics)
+;;   ;; CHARACTERISTICS --- a proper list.
+;;   ;;
+;;   ;; CHARACTERISTICS is a list of lists of (key . value) pairs.  Each component list
+;;   ;; is a precedence list of characteristics that are to be considered fallbacks for
+;;   ;; each other and that will be tried in order.
+;;   (labels ((find-more-specific-revisions (revisions characteristics)
+;;              (let ((alternatives (first characteristics))
+;;                    (rest (rest characteristics)))
+;;                (dolist (alternative alternatives)
+;;                  (when-let ((potential-revisions
+;;                              (remove-if-not (lambda (x)
+;;                                               (query "SELECT 1
+;;                                                       FROM article_revision_characteristics
+;;                                                       WHERE revision = $1
+;;                                                         AND characteristic = $2                                                     AND value = $3"
+;;                                                      x
+;;                                                      (car alternative)
+;;                                                      (cdr alternative)
+;;                                                      :column))
+;;                                             revisions)))
+;;                    (if-let ((subresults (find-more-specific-revisions potential-revisions rest)))
+;;                      (return-from find-more-specific-revisions subresults)
+;;                      (return-from find-more-specific-revisions potential-revisions)))))))
+;;     (let ((revisions (query "SELECT id FROM article_revisions
+;;                               WHERE article = $1
+;;                               ORDER BY date DESC"
+;;                             article
+;;                             :column)))
+;;       (if characteristics
+;;           (find-more-specific-revisions revisions characteristics)
+;;           revisions))))
 
 (defun paramify-comment (comment-revision-data)
   (destructuring-bind (crid comment date content author format status
@@ -139,14 +220,21 @@
             (string= path "journal/"))
     (lambda ()
       (with-db
-        (let* ((articles (find-journal-articles))
-               ;; XXX This is probably horriby inefficient.  We may want
-               ;; to try to get FIND-ARTICLE-REVISIONS into the
-               ;; database as a view or at least a stored procedure.
+        (let* (#+portable-mulkcms
+               (articles (find-journal-articles))
+               #+portable-mulkcms
                (revisions (remove-if #'null
                                      (mapcar (lambda (x)
                                                (find-article-params x characteristics))
                                              articles)))
+               #-portable-mulkcms
+               (revisions
+                (mapcar #'paramify-article
+                        (find-all-revisions characteristics
+                                            "EXISTS (SELECT 1
+                                                       FROM article_aliases
+                                                      WHERE article = r.article
+                                                        AND alias LIKE 'journal/%')")))
                (displayed-revisions (if full-p revisions (subseq revisions 0 10)))
                (page-skeleton (template "page_skeleton"))
                (page-template (template "journal_page"))
@@ -189,7 +277,10 @@
                                        :lists)))
                              comment-data)))
          (comments (mapcar #'paramify-comment comment-revision-data))
-         (revision-data (first revisions)))
+         (revision (first revisions))
+         (revision-data (query "SELECT * FROM article_revisions WHERE id = $1"
+                               revision
+                               :row)))
     (cond ((null revision-data)
            nil)
           (commentary-p

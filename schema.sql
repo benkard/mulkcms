@@ -184,7 +184,8 @@ CREATE OR REPLACE FUNCTION article_revisions_for_characteristics_with_fixed_ones
 DECLARE
   query              VARCHAR        := $$SELECT id FROM article_revisions
                                           WHERE article = $$
-                                       || quote_literal(article);
+                                       || quote_literal(article) ||
+                                       $$   AND status IN ('published', 'syndicated')$$;
   fchar              RECORD;
   revisions          INTEGER[];
   specific_revisions INTEGER[];
@@ -198,7 +199,7 @@ BEGIN
                               AND characteristic = $$ || quote_literal((fchar.val::characteristic).characteristic) || $$
                               AND value = $$ || quote_literal((fchar.val::characteristic).value) || $$)$$;
   END LOOP;
-  query := query || $$ORDER BY date DESC$$;  
+  query := query || $$ORDER BY date DESC$$;
   EXECUTE ('SELECT array(' || query || ')') INTO revisions;
   IF array_length(revisions, 1) > 0 THEN
     IF array_length(characteristics, 1) > 0 THEN
@@ -217,7 +218,7 @@ BEGIN
       RETURN revisions;
     END IF;
   ELSE
-    RETURN ARRAY[];
+    RETURN ARRAY[]::INTEGER[];
   END IF;
 END
 $BODY$ LANGUAGE plpgsql;
@@ -233,5 +234,39 @@ $$ LANGUAGE plpgsql;
 
 -- Usage example:
 --   SELECT article_revisions_for_characteristics(70, ARRAY[ROW(ARRAY[ROW('language', 'de')::characteristic])]::characteristic_list[]);
+
+
+CREATE FUNCTION older_revision(a article_revisions, b article_revisions)
+  RETURNS article_revisions AS $$
+BEGIN
+  IF a.date < b.date THEN
+    RETURN a;
+  ELSE
+    RETURN b;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE AGGREGATE oldest_revision (article_revisions) (
+  SFUNC = older_revision,
+  STYPE = article_revisions
+);
+
+
+CREATE FUNCTION more_recent_revision(a article_revisions, b article_revisions)
+  RETURNS article_revisions AS $$
+BEGIN
+  IF a.date > b.date THEN
+    RETURN a;
+  ELSE
+    RETURN b;
+  END IF;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE AGGREGATE most_recent_revision (article_revisions) (
+  SFUNC = more_recent_revision,
+  STYPE = article_revisions
+);
 
 COMMIT;
