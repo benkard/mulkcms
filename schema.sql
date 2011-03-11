@@ -164,4 +164,74 @@ CREATE TABLE user_settings(
   FOREIGN KEY ("user") REFERENCES users
 );
 
+
+----
+
+CREATE TYPE characteristic AS (
+  characteristic VARCHAR,
+  value          VARCHAR
+);
+
+CREATE TYPE characteristic_list AS (
+  characteristics characteristic[]
+);
+
+CREATE OR REPLACE FUNCTION article_revisions_for_characteristics_with_fixed_ones(
+  article INTEGER,
+  characteristics characteristic_list[],
+  fixed_characteristics characteristic_list
+) RETURNS INTEGER[] AS $BODY$
+DECLARE
+  query              VARCHAR        := $$SELECT id FROM article_revisions
+                                          WHERE article = $$
+                                       || quote_literal(article);
+  fchar              RECORD;
+  revisions          INTEGER[];
+  specific_revisions INTEGER[];
+  dummy              INTEGER;
+BEGIN
+  FOR fchar IN SELECT unnest(fixed_characteristics.characteristics) AS val LOOP
+    query := query || $$AND EXISTS
+                          (SELECT 1
+                             FROM article_revision_characteristics
+                            WHERE revision = article_revisions.id
+                              AND characteristic = $$ || quote_literal((fchar.val::characteristic).characteristic) || $$
+                              AND value = $$ || quote_literal((fchar.val::characteristic).value) || $$)$$;
+  END LOOP;
+  query := query || $$ORDER BY date DESC$$;  
+  EXECUTE ('SELECT array(' || query || ')') INTO revisions;
+  IF array_length(revisions, 1) > 0 THEN
+    IF array_length(characteristics, 1) > 0 THEN
+      FOR fchar IN SELECT unnest(characteristics[1].characteristics) AS val LOOP
+        specific_revisions := article_revisions_for_characteristics_with_fixed_ones(
+          article,
+          characteristics[2:array_upper(characteristics, 1)],
+          ROW(array_prepend(fchar.val, fixed_characteristics.characteristics))::characteristic_list
+        );
+        IF array_length(specific_revisions, 1) > 0 THEN
+          RETURN specific_revisions;
+        END IF;
+      END LOOP;
+      RETURN revisions;
+    ELSE
+      RETURN revisions;
+    END IF;
+  ELSE
+    RETURN ARRAY[];
+  END IF;
+END
+$BODY$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION article_revisions_for_characteristics(
+  article INTEGER,
+  characteristics characteristic_list[]
+) RETURNS SETOF INTEGER AS $$
+BEGIN
+  RETURN QUERY SELECT unnest(article_revisions_for_characteristics_with_fixed_ones(article, characteristics, ROW(ARRAY[]::characteristic[])::characteristic_list));
+END
+$$ LANGUAGE plpgsql;
+
+-- Usage example:
+--   SELECT article_revisions_for_characteristics(70, ARRAY[ROW(ARRAY[ROW('language', 'de')::characteristic])]::characteristic_list[]);
+
 COMMIT;
