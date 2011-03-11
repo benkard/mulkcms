@@ -22,7 +22,7 @@
             action="{edit-link|html-attr-value}"
             method="get">
         <div style="display: inline;">
-          <input name="id" type="hidden" value="106" />
+          <input name="edit" type="hidden" />
           <input type="submit" value="{edit-button-label|html-attr-value}" />
         </div>
       </form>
@@ -42,7 +42,7 @@
     <div class="comment">
       <div class="comment-header">
         {publishing-date|html-human-date}
-        <a rel="nofollow" {.section link}href="{@|html-attr-value}"{.end}>{.section author}{@|html}{.or}{generic-commenter-name|html}{.end}</a>:
+        <a rel="nofollow" {.section author-link}href="{@|html-attr-value}"{.end}>{.section author}{@|html}{.or}{generic-commenter-name|html}{.end}</a>:
       </div>
       <div class="comment-body">
         {body}
@@ -56,7 +56,7 @@
     <form action="{action|html-attr-value}" accept-charset="UTF-8"
           enctype="application/x-www-form-urlencoded" method="post">
       <div style="display: none">
-        <input name="id" type="hidden" value="98" />
+        <input name="id" type="hidden" value="{article-id|html-attr-value}" />
         <input name="action" type="hidden" value="post-comment" />
       </div>
       <div class="comment-form-table">
@@ -64,11 +64,11 @@
           <div class="comment-form-row">
             <div class="comment-form-label">
               <label style="vertical-align: top"
-                     for="{field-id|html-attr-value}">{field-label|html}:</label>
+                     for="comment-form-input-{field-id|html-attr-value}">{field-label|html}:</label>
             </div>
             <div class="comment-form-input">
-              <input id="{field-id|html-attr-value}"
-                     name="{field-name|html-attr-value}" type="text" />
+              <input id="comment-form-input-{field-id|html-attr-value}"
+                     name="{field-id|html-attr-value}" type="text" />
             </div>
           </div>
         {.end}

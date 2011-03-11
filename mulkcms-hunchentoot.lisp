@@ -29,6 +29,8 @@
 (defun start-server ()
   (setq hunchentoot:*hunchentoot-default-external-format*
         (flexi-streams:make-external-format :utf-8))
+  (setq hunchentoot:*default-content-type*
+        "text/html; charset=utf-8")
   (setup-handlers)
   (hunchentoot:start (make-instance 'hunchentoot:acceptor
                         :port *server-port*

@@ -13,6 +13,39 @@
                *template-formatters*)))
 
 
+(defun find-canonical-article-alias (article)
+  (query "SELECT alias FROM article_aliases WHERE article = $1 LIMIT 1"
+         article
+         :single))
+
+(defun link-to (action &key comment-id article-id (absolute nil))
+  ;; Taken from Mulkblog.
+  (with-output-to-string (out)
+    (format out "~A" (if absolute *base-uri* ""))
+    (symbol-macrolet ((article-base (find-canonical-article-alias article-id)))
+      (multiple-value-call
+          #'(lambda (&rest args) (apply #'format out args))
+        (ecase action
+          (:index "")
+          (:full-index "/?full")
+          (:view-atom-feed (values "/feed"))
+          (:view-comment-feed (cond (article-id (values "/~A?comment-feed" article-base))
+                                    (t "/comment-feed")))
+          (:view (cond (comment-id (values "/~A#comment-~D" article-base comment-id))
+                       (article-id (values "/~A" article-base))
+                       (t "/")))
+          ((:edit :preview) (values "/~A?preview" article-base))
+          (:post-comment (values "/~A" article-base))
+          (:trackback (values "/~A?trackback" article-base))
+          (:view-atom-entry (values "/~A?atom" article-base))
+          (:save (values "/~A?save" article-base))
+          (:moderation-page "/moderate")
+          (:css "/journal.css")
+          (:prettify.css "/prettify/prettify.css")
+          (:prettify.js "/prettify/prettify.js")
+          (:prettify-lisp.js "/prettify/lang-lisp.js")
+          (:pingback "/rpc"))))))
+
 (defun call-with-db (thunk)
   (call-with-connection *database-connection-spec* thunk))
 
@@ -47,19 +80,29 @@
   (destructuring-bind (rid article date title content author format status
                        global-id &rest args)
       revision-data
-    (declare (ignore args rid))
+    (declare (ignore args rid format author))
     (list :publishing-date date
           :title title
           :body content
-          ;;FIXME
-          :link ""
+          :article-id article
+          :global-id global-id
+          :status status
+          :link (link-to :view :article-id article)
           :commentary (if commentary-p (list :comments comments) nil)
-          :edit-link ""
+          :comment-submission (when commentary-p
+                                (list :fields (list (list :field-id "name"
+                                                          :field-label "Name"))
+                                      :body-label "Message"
+                                      :submit-button-label "Submit"
+                                      :title "Submit a comment"
+                                      :notes "<p>NOTE: Do something.</p>"
+                                      :action (link-to :post-comment :article-id article)))
+          :edit-link (link-to :edit :article-id article)
           :edit-button-label "Edit"
-          :comment-feed ""
+          :comment-feed (link-to :view-comment-feed :article-id article)
           :comment-feed-label "Comment feed"
           :comments-label "Comments"
-          :comments-link ""
+          :comments-link (link-to :view :article-id article)
           :comments-heading "Comments")))
 
 (defun format-comment-content (text)
@@ -193,15 +236,23 @@
   (destructuring-bind (crid comment date content author format status
                        article-revision &rest args)
       comment-revision-data
-    (declare (ignore args crid article-revision status format comment))
-    (list :publishing-date date
-          :body (format-comment-content content)
-          :author author
-          ;;FIXME
-          :link ""
-          :edit-link ""
-          :edit-button-label "Edit"
-          :generic-commenter-name "Someone")))
+    (declare (ignore args crid status format))
+    (destructuring-bind (author-name author-website)
+        (query "SELECT name, website FROM users WHERE id = $1" author :row)
+      (let ((article (query "SELECT article FROM article_revisions WHERE id = $1"
+                            article-revision
+                            :single!)))
+        (list :publishing-date date
+              :body (format-comment-content content)
+              :author author-name
+              ;;FIXME
+              :author-link (if (and author-website (not (equal author-website "")))
+                               author-website
+                               nil)
+              :link (link-to :view :article-id article :comment-id comment)
+              :edit-link ""
+              :edit-button-label "Edit"
+              :generic-commenter-name "Someone")))))
 
 (defprepared find-journal-articles
   "SELECT article
@@ -303,7 +354,7 @@
                                               WHERE articles.id = $1"
                                             article
                                             :single!))
-                 (article-params (find-article-params article characteristics))
+                 (article-params (find-article-params article characteristics t))
                  (page-skeleton (template "page_skeleton"))
                  (page-template (template page-template-name))
                  (template-params (list :title (getf article-params :title)
