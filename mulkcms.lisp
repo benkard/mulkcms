@@ -110,7 +110,7 @@
               JOIN article_revisions r ON r.id = mr.revision
              GROUP BY article
             HAVING ~A
-             ORDER BY (oldest_revision(r)).date"
+             ORDER BY (oldest_revision(r)).date DESC"
            (make-characteristic-lists characteristics)
            (or constraints "true"))))
 
