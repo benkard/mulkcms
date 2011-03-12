@@ -5,11 +5,15 @@
   )
 
 (defun dispatch-static-file-request (request)
-  ;; FIXME Can use paths like "/../mulkcms.lisp" or "//boot/initrd.img".
-  ;; That's bad.
   (let* ((relative-path (subseq (script-name request) 1))
          (file (merge-pathnames relative-path *static-files*)))
-    (and (probe-file file) (lambda () (handle-static-file file)))))
+    (and (probe-file file)
+         ;; For security (otherwise paths like "/../mulkcms.lisp" or
+         ;; "//boot/initrd.img" would be handled by sending the
+         ;; requested file...):
+         (starts-with-subseq (namestring (truename *static-files*))
+                             (namestring (truename file)))
+         (lambda () (handle-static-file file)))))
 
 (defun dispatch-mulkcms-request (request)
   (let* ((relative-path (subseq (script-name request) 1)))
