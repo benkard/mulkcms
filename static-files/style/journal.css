@@ -190,6 +190,15 @@ table.old-entry-table td {
   margin: 0 0 0 0;
 }
 
+table.old-entry-table td.archive-date {
+  white-space: nowrap;
+  text-align: right;
+}
+
+table.old-entry-table td.archive-comment-number {
+  white-space: nowrap;
+}
+
 a:link {
   color: #0c2db2;
 }

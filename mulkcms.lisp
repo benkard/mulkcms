@@ -60,7 +60,10 @@
 
 (defun format-short-human-date (date)
   ;; FIXME
-  "(some date)")
+  (multiple-value-bind (year month day hour minute second millisecond)
+      (decode-timestamp date)
+    (declare (ignore second millisecond))
+    (format nil "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D" year month day hour minute)))
 
 (defun format-human-date (date)
   ;; FIXME
@@ -299,7 +302,12 @@
                                       :site-subtitle ""
                                       :link ""
                                       :full-archive-link ""
-                                      :full-archive-label "Full archive (slow!)"))
+                                      :full-archive-label "Full archive (slow!)"
+                                      :archive-title "Older posts"
+                                      :archive-table-caption "Posts by date"
+                                      :archive-title-label "Title"
+                                      :archive-date-label "Date"
+                                      :archive-comments-label "Comments"))
                (head (expand-template page-template (list* :head t
                                                            :articles displayed-revisions
                                                            :minor-articles revisions

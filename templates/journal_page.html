@@ -18,23 +18,23 @@
 
   {.section minor-articles}
   <div class="old-entries">
-    <h2>&#196;ltere Eintr&#228;ge</h2>
+    <h2>{archive-title}</h2>
     <p><a href="{full-archive-link|html-attr-value}" rel="archives">{full-archive-label|html}</a></p>
     <table class="old-entry-table">
-      <caption>Eintr&#228;ge nach Datum</caption>
+      <caption>{archive-table-caption}</caption>
       <thead>
         <tr>
-          <th scope="col">Titel</th>
-          <th scope="col">Datum</th>
-          <th scope="col">Kommentare</th>
+          <th scope="col">{archive-title-label}</th>
+          <th scope="col">{archive-date-label}</th>
+          <th scope="col">{archive-comments-label}</th>
         </tr>
       </thead>
       <tbody>
         {.repeated section @}
         <tr>
-          <td><a href="{link|html-attr-value}">{title}</a></td>
-          <td style="text-align: right">{publishing-date|html-short-human-date}</td>
-          <td><a href="{comments-link|html-attr-value}">{comments-label|html}</a></td>
+          <td class="archive-title"><a href="{link|html-attr-value}">{title}</a></td>
+          <td class="archive-date">{publishing-date|html-short-human-date}</td>
+          <td class="archive-comment-number"><a href="{comments-link|html-attr-value}">{comments-label|html}</a></td>
         </tr>
         {.end}
       </tbody>
