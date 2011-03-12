@@ -59,19 +59,26 @@
                                    :directory *templates*))))
 
 (defun format-short-human-date (date)
+  (multiple-value-bind (year month day hour minute second millisecond)
+      (decode-timestamp date)
+    (declare (ignore second millisecond))
+    (format nil "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D"
+            year month day hour minute)))
+
+(defun format-human-date (date)
   ;; FIXME
   (multiple-value-bind (year month day hour minute second millisecond)
       (decode-timestamp date)
     (declare (ignore second millisecond))
-    (format nil "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D" year month day hour minute)))
-
-(defun format-human-date (date)
-  ;; FIXME
-  "(some date)")
+    (format nil "~4,'0D-~2,'0D-~2,'0D ~2,'0D:~2,'0D"
+            year month day hour minute)))
 
 (defun format-iso-date (date)
-  ;; FIXME
-  "(some date)")
+  (multiple-value-bind (year month day hour minute second millisecond)
+      (decode-timestamp date)
+    (declare (ignore millisecond))
+    (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
+            year month day hour minute second)))
 
 (defun template (template-name)
   (parse-template-string (read-file-into-string (find-template template-name))))
