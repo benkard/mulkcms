@@ -1,0 +1,203 @@
+/*-*- mode: css; coding: utf-8 -*-*/
+/* CSS version 3.0 */
+/* Copyright 2007, 2008, Matthias Andreas Benkard. */
+
+/*-----------------------------------------------------------------------
+ * This file is part of The Mulkblog Project.
+ *
+ * The Mulkblog Project is free software.  You can redistribute it and/or
+ * modify it under the terms of the Affero General Public License as
+ * published by Affero, Inc.; either version 1 of the License, or
+ * (at your option) any later version.
+ *
+ * The Mulkblog Project is distributed in the hope that it will be
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * Affero General Public License for more details.
+ *
+ * You should have received a copy of the Affero General Public
+ * License in the COPYING file that comes with The Mulkblog Project; if
+ * not, write to Affero, Inc., 510 Third Street, Suite 225, San
+ * Francisco, CA 94107 USA.
+ *-----------------------------------------------------------------------
+ */
+
+html {
+  /* Epiphany chooses a sans-serif font for this because it recognises both
+     Calibri and Candara as requesting such a font even if neither of them
+     is installed.  Consequently, everything looks much nicer in Firefox, which
+     falls back to URW Palladio L, as it should.  Weird. */
+
+  font-family: Optima, Calibri, 'MgOpen Cosmetica', 'MgOpen Moderna', Candara, Palatino, 'Palatino Linotype', 'Book Antiqua', 'URW Palladio L', 'Gentium Alt', 'Gentium', Geneva, 'Trebuchet MS', Georgia, sans-serif;
+
+  /* font-family: "MgOpen Modata" */
+}
+
+#main-title {
+  font-stretch: wider;
+  font-variant: small-caps;
+  font-weight: bolder;
+  text-align: center;
+}
+
+#main-title a {
+  text-decoration: none;
+}
+
+#main-subtitle {
+  text-align: center;
+}
+
+#main-title-box {
+}
+
+.article-header {
+  font-size: x-small;
+  color: #444;
+  background-color: inherit;
+  font-weight: lighter;
+  text-align: left;
+}
+
+.article h1 {
+  border-bottom: 2px solid #000;
+  font-size: 1.6em;
+}
+
+.article h1 > a {
+  text-decoration: none;
+}
+
+.article h2 {
+  font-size: 1.15em;
+}
+
+.article h3 {
+  font-size: 1em;
+}
+
+.article h4 {
+  font-size: 0.9em;
+}
+
+.article {
+  border: 3px outset #666;
+  color: #000;
+  background-color: #f8f8e0;
+  margin: 1em 0 0 0;
+  padding: 0 0.3em 0 0.3em;
+  text-align: justify;
+}
+
+.article-body p {
+  text-indent: 1em;
+}
+
+.article-body pre {
+  overflow: auto;
+  /* overflow: scroll; */
+}
+
+.article-body blockquote {
+  font-style: oblique;
+}
+
+img.article-portrait {
+  margin-right: 6px;
+  margin-bottom: 6px;
+  float: left;
+}
+
+.article-footer {
+  font-size: small;
+  padding-top: 0.5em;
+  text-align: right;
+  clear: both;
+}
+
+.journal-comments h2 {
+  width: 80%;
+}
+
+.journal-comment {
+  margin-top: 1em;
+  border: 1px solid #aaa;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+}
+
+.journal-comment-header {
+  margin-bottom: 1em;
+}
+
+.journal-comment-body {
+  text-align: justify;
+  text-indent: 1em;
+}
+
+.journal-comment-body blockquote {
+  font-style: oblique;
+}
+
+#warnings {
+  align: center;
+  width: 100%;
+}
+
+.journal-warning {
+  position: relative;
+  left: 15%;
+  width: 70%;
+  border: 3px outset #666;
+  color: #000;
+  background-color: #ffd0c0;
+  margin: 1em 0 0 0;
+  padding: 0 0.3em 0 0.3em;
+  text-align: justify;
+}
+
+.old-entries {
+  border: 3px outset #666;
+  color: #000;
+  background-color: #e8e8e8;
+  margin: 1em 0 0 0;
+  padding: 0 0.3em 0 0.3em;
+  text-align: justify;
+}
+
+td {
+  padding: 0.2em 0.4em 0.2em 0.4em;
+  vertical-align: top;
+  border: 1px solid #aaa;
+  margin: 0 0 0 0;
+}
+
+table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin: 0 0 0.3em 0;
+}
+
+table.old-entry-table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin: 0 0 0.3em 0;
+}
+
+table.old-entry-table td {
+  padding: 0.2em 0.4em 0.2em 0.4em;
+  vertical-align: top;
+  border: 1px solid #aaa;
+  margin: 0 0 0 0;
+}
+
+a:link {
+  color: #0c2db2;
+}
+
+a:visited {
+  color: #38597f;
+}
+
+h1 a:visited, h2 a:visited, h3 a:visited, h4 a:visited, h5 a:visited, h6 a:visited {
+  color: #0c2db2;
+}

@@ -2,4 +2,5 @@
   (:use #:common-lisp #:hunchentoot #:cl-who #:cl-ppcre #:alexandria #:cl-fad
         #:mulkcms)
   (:nicknames #:mulkcms-ht)
-  (:shadow #:copy-file #:copy-stream))
+  (:shadow #:copy-file #:copy-stream)
+  (:export #:start-server))

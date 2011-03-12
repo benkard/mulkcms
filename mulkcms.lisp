@@ -34,6 +34,7 @@
           (:view (cond (comment-id (values "/~A#comment-~D" article-base comment-id))
                        (article-id (values "/~A" article-base))
                        (t "/")))
+          (:view-comments (values "/~A#comments" article-base))
           ((:edit :preview) (values "/~A?preview" article-base))
           (:post-comment (values "/~A" article-base))
           (:trackback (values "/~A?trackback" article-base))
@@ -76,7 +77,7 @@
   (let ((article-template (template "article")))
     (expand-template article-template article-params)))
 
-(defun paramify-article (revision-data &optional (comments nil commentary-p))
+(defun paramify-article-data (revision-data comment-num &optional (comments nil commentary-p))
   (destructuring-bind (rid article date title content author format status
                        global-id &rest args)
       revision-data
@@ -101,8 +102,11 @@
           :edit-button-label "Edit"
           :comment-feed (link-to :view-comment-feed :article-id article)
           :comment-feed-label "Comment feed"
-          :comments-label "Comments"
-          :comments-link (link-to :view :article-id article)
+          :comments-label (case comment-num
+                            (0 "no comments")
+                            (1 "1 comment")
+                            (otherwise (format nil "~D comments" comment-num)))
+          :comments-link (link-to :view-comments :article-id article)
           :comments-heading "Comments")))
 
 (defun format-comment-content (text)
@@ -308,8 +312,8 @@
                                                :head head
                                                :body body)))))))
 
-(defun find-article-params (article characteristics &optional commentary-p)
-  (let* ((revisions (find-article-revisions article characteristics))
+(defun paramify-article (revision-data &optional commentary-p)
+  (let* ((article (second revision-data))
          (comment-data (if commentary-p
                            (query "SELECT id FROM comments WHERE article = $1"
                                   article
@@ -328,17 +332,35 @@
                                        :lists)))
                              comment-data)))
          (comments (mapcar #'paramify-comment comment-revision-data))
+         (comment-num
+          (if commentary-p
+              (length comment-revision-data)
+              (query "SELECT count(*)
+                        FROM comments
+                       WHERE article = $1
+                         AND EXISTS (SELECT *
+                                       FROM comment_revisions
+                                      WHERE comment = comments.id
+                                        AND status IN ('approved', 'trusted'))"
+                     article
+                     :single))))
+    (cond ((null revision-data)
+           nil)
+          (commentary-p
+           (paramify-article-data revision-data comment-num comments))
+          (t
+           (paramify-article-data revision-data comment-num)))))
+
+(defun find-article-params (article characteristics &optional commentary-p)
+  (let* ((revisions (find-article-revisions article characteristics))
          (revision (first revisions))
          (revision-data (query "SELECT * FROM article_revisions WHERE id = $1"
                                revision
                                :row)))
     (cond ((null revision-data)
            nil)
-          (commentary-p
-           (paramify-article revision-data comments))
           (t
-           (paramify-article revision-data)))))
-
+           (paramify-article revision-data commentary-p)))))
 
 (defun find-article-request-handler (path &optional action characteristics)
   (with-db
@@ -371,3 +393,11 @@
             (expand-template page-skeleton (list :title (getf article-params :title)
                                                  :head head
                                                  :body body))))))))
+
+
+
+(defun find-request-handler (path params)
+  (or (find-journal-archive-request-handler
+       path
+       (assoc "full" params :test #'equal))
+      (find-article-request-handler path)))

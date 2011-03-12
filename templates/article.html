@@ -1,4 +1,5 @@
 <article>
+<div class="article">
   <h1><a href="{link|html-attr-value}">{title|html}</a></h1>
 
   <div class="article-header">
@@ -32,10 +33,11 @@
       <a href="{comments-link|html-attr-value}">{comments-label|html}</a>
     </footer>
   </div>
+</div>
 </article>
 
 {.section commentary}
-<div class="comments">
+<div class="comments" id="comments">
   <h2>{comments-heading|html}</h2>
 
   {.repeated section comments}
