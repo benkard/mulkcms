@@ -89,10 +89,11 @@
 
 (defun paramify-article-data (revision-data comment-num &optional (comments nil commentary-p))
   (destructuring-bind (rid article date title content author format status
-                       global-id &rest args)
+                       global-id publishing-date &rest args)
       revision-data
     (declare (ignore args rid format author))
-    (list :publishing-date date
+    (list :publishing-date publishing-date
+          :last-updated-date date
           :title title
           :body content
           :article-id article
@@ -160,12 +161,15 @@
 (defun find-all-revisions (characteristics &optional constraints)
   (query
    (format nil
-           "SELECT (most_recent_revision(r)).*
-              FROM (SELECT article_revisions_for_characteristics(a.id, ~A) AS revision
+           "SELECT (most_recent_revision(r)).*, (oldest_revision(r2)).date
+              FROM (SELECT article_revisions_for_characteristics(a.id, ~A)
+                           AS revision
                       FROM articles a)
                    AS mr
               JOIN article_revisions r ON r.id = mr.revision
-             GROUP BY article
+              JOIN article_revisions r2 ON r.article = r2.article
+             WHERE r2.status IN ('published', 'syndicated')
+             GROUP BY r.article
             HAVING ~A
              ORDER BY (oldest_revision(r)).date DESC"
            (make-characteristic-lists characteristics)
@@ -369,13 +373,22 @@
 (defun find-article-params (article characteristics &optional commentary-p)
   (let* ((revisions (find-article-revisions article characteristics))
          (revision (first revisions))
-         (revision-data (query "SELECT * FROM article_revisions WHERE id = $1"
+         (revision-data (query "SELECT *
+                                  FROM article_revisions
+                                 WHERE id = $1"
                                revision
-                               :row)))
+                               :row))
+         (publishing-date (query "SELECT min(date)
+                                    FROM article_revisions
+                                   WHERE article = $1
+                                     AND status IN ('published', 'syndicated')"
+                                 article
+                                 :single)))
     (cond ((null revision-data)
            nil)
           (t
-           (paramify-article revision-data commentary-p)))))
+           (paramify-article (append revision-data (list publishing-date))
+                             commentary-p)))))
 
 (defun find-article-request-handler (path &optional action characteristics)
   (with-db
