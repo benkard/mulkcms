@@ -1,5 +1,6 @@
 (in-package #:mulkcms-hunchentoot)
 
+#+(or)
 (define-easy-handler handle-admin-request (action)
   ;; XXX
   )
@@ -13,11 +14,12 @@
          ;; requested file...):
          (starts-with-subseq (namestring (truename *static-files*))
                              (namestring (truename file)))
+         (not (directory-pathname-p file))
          (lambda () (handle-static-file file)))))
 
 (defun dispatch-mulkcms-request (request)
   (let* ((relative-path (subseq (script-name request) 1)))
-    (mulkcms:find-request-handler relative-path(get-parameters*))))
+    (mulkcms::find-request-handler relative-path (get-parameters*))))
 
 (defun setup-handlers ()
   (setq *dispatch-table*
@@ -25,7 +27,9 @@
                'dispatch-mulkcms-request
                'dispatch-static-file-request
                *dispatch-table*))
-  (setq *default-handler* 'handle-mulkcms-request))
+  (setq *default-handler*
+        (lambda ()
+          (setf (return-code*) +http-not-found+))))
 
 (defun start-server ()
   (setq hunchentoot:*hunchentoot-default-external-format*
