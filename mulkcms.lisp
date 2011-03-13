@@ -35,7 +35,7 @@
                        (article-id (values "/~A" article-base))
                        (t "/")))
           (:view-comments (values "/~A#comments" article-base))
-          ((:edit :preview) (values "/~A?preview" article-base))
+          ((:edit :preview) (values "/~A?edit" article-base))
           (:post-comment (values "/~A" article-base))
           (:trackback (values "/~A?trackback" article-base))
           (:view-atom-entry (values "/~A?atom" article-base))
@@ -89,10 +89,13 @@
 
 (defun paramify-article-data (revision-data &optional (comments nil commentary-p))
   (destructuring-bind (rid article date title content author format status
-                       global-id publishing-date comment-num &rest args)
+                       global-id
+                       &optional publishing-date comment-num
+                       &rest args)
       revision-data
-    (declare (ignore args rid format author))
+    (declare (ignore args format author))
     (list :publishing-date publishing-date
+          :revision rid
           :last-updated-date date
           :title title
           :body content
@@ -332,8 +335,7 @@
                                                :body body)))))))
 
 (defun paramify-article (revision-data &optional commentary-p comments)
-  (let* (
-         )
+  (let* ()
     (cond ((null revision-data)
            nil)
           (commentary-p
@@ -382,42 +384,124 @@
                              commentary-p
                              comments)))))
 
-(defun find-article-request-handler (path &optional action characteristics)
+(defun expand-page (page-template title template-params)
+  (let ((page-skeleton (template "page_skeleton"))
+        (head (expand-template page-template
+                               (list* :head t
+                                      template-params)))
+        (body (expand-template page-template
+                               (list* :body t
+                                      template-params))))
+    (expand-template page-skeleton
+                     (list :title title
+                           :head head
+                           :body body))))
+
+(defun find-article-request-handler (path params &optional action characteristics)
   (with-db
     (when-let ((article (query "SELECT article FROM article_aliases
                                  WHERE alias = $1"
                                path
                                :single)))
-      (lambda ()
-        (with-db
-          (let* ((page-template-name (query "SELECT page_template FROM articles
+      (ecase action
+        (:edit
+         (lambda ()
+           (with-db
+             (with-transaction ()
+               (let* ((revision (if (assoc "save" params :test #'equal)
+                                    (query "INSERT INTO article_revisions(article, title, content, author, format, status)
+                                               VALUES ($1, $2, $3, $4, $5, $6)
+                                            RETURNING *"
+                                           article
+                                           (cdr (assoc "title" params :test #'equal))
+                                           (cdr (assoc "content" params :test #'equal))
+                                           1 ;FIXME
+                                           "html"
+                                           (if (hunchentoot:post-parameter "publish-p")
+                                               "syndicated"
+                                               "draft")
+                                           :row)
+                                    (query "SELECT * FROM article_revisions
+                                                  WHERE id = $1
+                                                    AND article = $2"
+                                           (parse-integer
+                                            (cdr (assoc "revision"
+                                                        params
+                                                        :test #'equal)))
+                                           article
+                                           :row)))
+                      (article-params (paramify-article revision))
+                      (editor-template (template "edit_page")))
+                 (assert (not (null revision)))
+                 (when (assoc "save" params :test #'equal)
+                   (print (parse-integer (cdr (assoc "revision"
+                                                     params
+                                                     :test #'equal))))
+                   (query "INSERT INTO article_revision_parenthood(parent, child)
+                                VALUES ($1, $2)"
+                          (parse-integer (cdr (assoc "revision"
+                                                     params
+                                                     :test #'equal)))
+                          (first revision)
+                          :none)
+                   (query "INSERT INTO article_revision_characteristics(revision, characteristic, value)
+                                SELECT $2, characteristic, value
+                                  FROM article_revision_characteristics
+                                 WHERE revision = $1"
+                          (parse-integer (cdr (assoc "revision"
+                                                     params
+                                                     :test #'equal)))
+                          (first revision)
+                          :none))
+                 (expand-page editor-template
+                              (getf article-params :title)
+                              (list :article article-params
+                                    :title (getf article-params :title)
+                                    :root *base-uri*
+                                    :site-name *site-name*
+                                    :site-subtitle ""
+                                    :link (link-to :edit :article-id article)
+                                    :save-button-label "Save"
+                                    :publish-flag-label "Publish"
+                                    :title-label "Title"
+                                    :content-label "Content")))))))
+        (:view
+         (lambda ()
+           (with-db
+             (let* ((page-template-name (query "SELECT page_template FROM articles
                                                JOIN article_types
                                                  ON articles.type = article_types.id
                                               WHERE articles.id = $1"
-                                            article
-                                            :single!))
-                 (article-params (find-article-params article characteristics t))
-                 (page-skeleton (template "page_skeleton"))
-                 (page-template (template page-template-name))
-                 (template-params (list :title (getf article-params :title)
-                                        :root *base-uri*
-                                        :site-name *site-name*
-                                        :site-subtitle ""
-                                        :link ""))
-                 (head (expand-template page-template (list* :head t
-                                                             :articles (list article-params)
-                                                             template-params)))
-                 (body (expand-template page-template (list* :body t
-                                                             :articles (list article-params)
-                                                             template-params))))
-            (expand-template page-skeleton (list :title (getf article-params :title)
-                                                 :head head
-                                                 :body body))))))))
+                                               article
+                                               :single!))
+                    (article-params (find-article-params article characteristics t))
+                    (page-template (template page-template-name))
+                    (template-params (list :title (getf article-params :title)
+                                           :root *base-uri*
+                                           :site-name *site-name*
+                                           :site-subtitle ""
+                                           :link "")))
+               (expand-page page-template
+                            (getf article-params :title)
+                            (list* :articles (list article-params)
+                                   template-params))))))))))
 
+
+
+(defun keywordify (thing)
+  (intern (string-upcase (format nil "~A" thing)) "KEYWORD"))
 
 
 (defun find-request-handler (path params)
   (or (find-journal-archive-request-handler
        path
-       (assoc "full" params :test #'equal))
-      (find-article-request-handler path)))
+       (assoc "full" params :test #'equal)
+       (cond ((assoc "feed" params :test #'equal) :view-feed)
+             (t                                   :view)))
+      (find-article-request-handler
+       path
+       params
+       (cond ((assoc "edit"         params :test #'equal) :edit)
+             ((assoc "comment-feed" params :test #'equal) :view-comment-feed)
+             ((assoc "atom"         params :test #'equal) :view-atom-entry)
+             (t                                           :view)))))

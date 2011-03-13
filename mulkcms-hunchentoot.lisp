@@ -19,7 +19,7 @@
 
 (defun dispatch-mulkcms-request (request)
   (let* ((relative-path (subseq (script-name request) 1)))
-    (mulkcms::find-request-handler relative-path (get-parameters*))))
+    (mulkcms::find-request-handler relative-path (append (get-parameters*) (post-parameters*)))))
 
 (defun setup-handlers ()
   (setq *dispatch-table*

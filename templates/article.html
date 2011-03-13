@@ -4,11 +4,13 @@
 
   <div class="article-header">
     <header>
+      {.section publishing-date}
       <span class="article-date">
-        <time pubdate="pubdate" datetime="{publishing-date|html-iso-date}">
-          {publishing-date|html-human-date}
+        <time pubdate="pubdate" datetime="{@|html-iso-date}">
+          {@|html-human-date}
         </time>
       </span>
+      {.end}
     </header>
   </div>
 
@@ -24,6 +26,7 @@
             method="get">
         <div style="display: inline;">
           <input name="edit" type="hidden" />
+          <input name="revision" type="hidden" value="{revision|html-attr-value}" />
           <input type="submit" value="{edit-button-label|html-attr-value}" />
         </div>
       </form>
