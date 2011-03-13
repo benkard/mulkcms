@@ -450,8 +450,8 @@
                                                  "draft")
                                              :row)
                                       (query "SELECT * FROM article_revisions
-                                                  WHERE id = $1
-                                                    AND article = $2"
+                                               WHERE id = $1
+                                                 AND article = $2"
                                              (parse-integer
                                               (cdr (assoc "revision"
                                                           params
@@ -466,16 +466,16 @@
                                                        params
                                                        :test #'equal))))
                      (query "INSERT INTO article_revision_parenthood(parent, child)
-                                VALUES ($1, $2)"
+                                  VALUES ($1, $2)"
                             (parse-integer (cdr (assoc "revision"
                                                        params
                                                        :test #'equal)))
                             (first revision)
                             :none)
                      (query "INSERT INTO article_revision_characteristics(revision, characteristic, value)
-                                SELECT $2, characteristic, value
-                                  FROM article_revision_characteristics
-                                 WHERE revision = $1"
+                                  SELECT $2, characteristic, value
+                                    FROM article_revision_characteristics
+                                   WHERE revision = $1"
                             (parse-integer (cdr (assoc "revision"
                                                        params
                                                        :test #'equal)))
@@ -497,9 +497,9 @@
          (lambda ()
            (with-db
              (let* ((page-template-name (query "SELECT page_template FROM articles
-                                               JOIN article_types
-                                                 ON articles.type = article_types.id
-                                              WHERE articles.id = $1"
+                                                  JOIN article_types
+                                                    ON articles.type = article_types.id
+                                                 WHERE articles.id = $1"
                                                article
                                                :single!))
                     (article-params (find-article-params article characteristics t))
