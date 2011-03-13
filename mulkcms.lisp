@@ -397,6 +397,33 @@
                            :head head
                            :body body))))
 
+(defmacro with-authorization ((user-id-var &rest options) &body body)
+  `(call-with-authorization (lambda (,user-id-var) ,@body)
+                            ,@options))
+
+(defun call-with-authorization (thunk &key require)
+  (multiple-value-bind (user-name password)
+      (hunchentoot:authorization)
+    (with-db
+      (let ((user-id (query (format nil
+                                    "SELECT id
+                                     FROM users u
+                                     JOIN passwords p ON u.id = p.user
+                                    WHERE p.password = $2
+                                      AND u.name = $1
+                                      AND ~A"
+                                    (ecase require
+                                      ((nil) "true")
+                                      ((:admin) "u.status = 'admin'")
+                                      ((:trusted) "u.status IN ('trusted', 'admin')")
+                                      ((:approved) "u.status IN ('approved', 'trusted', 'admin')")))
+                            user-name
+                            password
+                            :single)))
+        (if user-id
+            (funcall thunk user-id)
+            (hunchentoot:require-authorization "MulkCMS"))))))
+
 (defun find-article-request-handler (path params &optional action characteristics)
   (with-db
     (when-let ((article (query "SELECT article FROM article_aliases
@@ -406,65 +433,66 @@
       (ecase action
         (:edit
          (lambda ()
-           (with-db
-             (with-transaction ()
-               (let* ((revision (if (assoc "save" params :test #'equal)
-                                    (query "INSERT INTO article_revisions(article, title, content, author, format, status)
+           (with-authorization (user-id :require :admin)
+             (with-db
+               (with-transaction ()
+                 (let* ((revision (if (assoc "save" params :test #'equal)
+                                      (query "INSERT INTO article_revisions(article, title, content, author, format, status)
                                                  VALUES ($1, $2, $3, $4, $5, $6)
                                               RETURNING *"
-                                           article
-                                           (cdr (assoc "title" params :test #'equal))
-                                           (cdr (assoc "content" params :test #'equal))
-                                           1 ;FIXME
-                                           "html"
-                                           (if (hunchentoot:post-parameter "publish-p")
-                                               "syndicated"
-                                               "draft")
-                                           :row)
-                                    (query "SELECT * FROM article_revisions
+                                             article
+                                             (cdr (assoc "title" params :test #'equal))
+                                             (cdr (assoc "content" params :test #'equal))
+                                             user-id
+                                             "html"
+                                             (if (hunchentoot:post-parameter "publish-p")
+                                                 "syndicated"
+                                                 "draft")
+                                             :row)
+                                      (query "SELECT * FROM article_revisions
                                                   WHERE id = $1
                                                     AND article = $2"
-                                           (parse-integer
-                                            (cdr (assoc "revision"
-                                                        params
-                                                        :test #'equal)))
-                                           article
-                                           :row)))
-                      (article-params (paramify-article revision))
-                      (editor-template (template "edit_page")))
-                 (assert (not (null revision)))
-                 (when (assoc "save" params :test #'equal)
-                   (print (parse-integer (cdr (assoc "revision"
-                                                     params
-                                                     :test #'equal))))
-                   (query "INSERT INTO article_revision_parenthood(parent, child)
+                                             (parse-integer
+                                              (cdr (assoc "revision"
+                                                          params
+                                                          :test #'equal)))
+                                             article
+                                             :row)))
+                        (article-params (paramify-article revision))
+                        (editor-template (template "edit_page")))
+                   (assert (not (null revision)))
+                   (when (assoc "save" params :test #'equal)
+                     (print (parse-integer (cdr (assoc "revision"
+                                                       params
+                                                       :test #'equal))))
+                     (query "INSERT INTO article_revision_parenthood(parent, child)
                                 VALUES ($1, $2)"
-                          (parse-integer (cdr (assoc "revision"
-                                                     params
-                                                     :test #'equal)))
-                          (first revision)
-                          :none)
-                   (query "INSERT INTO article_revision_characteristics(revision, characteristic, value)
+                            (parse-integer (cdr (assoc "revision"
+                                                       params
+                                                       :test #'equal)))
+                            (first revision)
+                            :none)
+                     (query "INSERT INTO article_revision_characteristics(revision, characteristic, value)
                                 SELECT $2, characteristic, value
                                   FROM article_revision_characteristics
                                  WHERE revision = $1"
-                          (parse-integer (cdr (assoc "revision"
-                                                     params
-                                                     :test #'equal)))
-                          (first revision)
-                          :none))
-                 (expand-page editor-template
-                              (getf article-params :title)
-                              (list :article article-params
-                                    :title (getf article-params :title)
-                                    :root *base-uri*
-                                    :site-name *site-name*
-                                    :site-subtitle ""
-                                    :link (link-to :edit :article-id article)
-                                    :save-button-label "Save"
-                                    :publish-flag-label "Publish"
-                                    :title-label "Title"
-                                    :content-label "Content")))))))
+                            (parse-integer (cdr (assoc "revision"
+                                                       params
+                                                       :test #'equal)))
+                            (first revision)
+                            :none))
+                   (expand-page editor-template
+                                (getf article-params :title)
+                                (list :article article-params
+                                      :title (getf article-params :title)
+                                      :root *base-uri*
+                                      :site-name *site-name*
+                                      :site-subtitle ""
+                                      :link (link-to :edit :article-id article)
+                                      :save-button-label "Save"
+                                      :publish-flag-label "Publish"
+                                      :title-label "Title"
+                                      :content-label "Content"))))))))
         (:view
          (lambda ()
            (with-db
