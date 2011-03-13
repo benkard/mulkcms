@@ -410,8 +410,8 @@
              (with-transaction ()
                (let* ((revision (if (assoc "save" params :test #'equal)
                                     (query "INSERT INTO article_revisions(article, title, content, author, format, status)
-                                               VALUES ($1, $2, $3, $4, $5, $6)
-                                            RETURNING *"
+                                                 VALUES ($1, $2, $3, $4, $5, $6)
+                                              RETURNING *"
                                            article
                                            (cdr (assoc "title" params :test #'equal))
                                            (cdr (assoc "content" params :test #'equal))
