@@ -178,7 +178,7 @@ CREATE TYPE characteristic_list AS (
   characteristics characteristic[]
 );
 
-CREATE OR REPLACE FUNCTION article_revisions_for_characteristics_with_fixed_ones(
+CREATE FUNCTION article_revisions_for_characteristics_with_fixed_ones(
   article INTEGER,
   characteristics characteristic_list[],
   fixed_characteristics characteristic_list
@@ -223,16 +223,16 @@ BEGIN
     RETURN ARRAY[]::INTEGER[];
   END IF;
 END
-$BODY$ LANGUAGE plpgsql;
+$BODY$ LANGUAGE plpgsql STABLE;
 
-CREATE OR REPLACE FUNCTION article_revisions_for_characteristics(
+CREATE FUNCTION article_revisions_for_characteristics(
   article INTEGER,
   characteristics characteristic_list[]
 ) RETURNS SETOF INTEGER AS $$
 BEGIN
   RETURN QUERY SELECT unnest(article_revisions_for_characteristics_with_fixed_ones(article, characteristics, ROW(ARRAY[]::characteristic[])::characteristic_list));
 END
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql STABLE;
 
 -- Usage example:
 --   SELECT article_revisions_for_characteristics(70, ARRAY[ROW(ARRAY[ROW('language', 'de')::characteristic])]::characteristic_list[]);
@@ -248,7 +248,7 @@ CREATE FUNCTION older_revision(
   SELECT $2 WHERE $1.date >= $2.date OR $1.date IS NULL
   UNION
   SELECT $1 WHERE $1.date IS NULL AND $2.date IS NULL
-$$ LANGUAGE SQL;
+$$ LANGUAGE SQL IMMUTABLE;
 
 CREATE AGGREGATE oldest_revision (article_revisions) (
   SFUNC = older_revision,
@@ -266,7 +266,7 @@ CREATE FUNCTION more_recent_revision(
   SELECT $2 WHERE $1.date <= $2.date OR $1.date IS NULL
   UNION
   SELECT $1 WHERE $1.date IS NULL AND $2.date IS NULL
-$$ LANGUAGE SQL;
+$$ LANGUAGE SQL IMMUTABLE;
 
 
 CREATE AGGREGATE most_recent_revision (article_revisions) (
