@@ -1,3 +1,5 @@
+--*- mode: sql; product: postgres -*--
+
 BEGIN TRANSACTION;
 
 -- For PostgreSQL 9.1 upward, we should consider using enum types
@@ -236,16 +238,17 @@ $$ LANGUAGE plpgsql;
 --   SELECT article_revisions_for_characteristics(70, ARRAY[ROW(ARRAY[ROW('language', 'de')::characteristic])]::characteristic_list[]);
 
 
-CREATE FUNCTION older_revision(a article_revisions, b article_revisions)
-  RETURNS article_revisions AS $$
-BEGIN
-  IF a.date < b.date THEN
-    RETURN a;
-  ELSE
-    RETURN b;
-  END IF;
-END
-$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION older_revision(
+  IN article_revisions,
+  IN article_revisions,
+  OUT article_revisions
+) AS $$
+  SELECT $1 WHERE $1.date < $2.date OR $2.date IS NULL
+  UNION
+  SELECT $2 WHERE $1.date >= $2.date OR $1.date IS NULL
+  UNION
+  SELECT $1 WHERE $1.date IS NULL AND $2.date IS NULL
+$$ LANGUAGE SQL;
 
 CREATE AGGREGATE oldest_revision (article_revisions) (
   SFUNC = older_revision,
@@ -253,16 +256,18 @@ CREATE AGGREGATE oldest_revision (article_revisions) (
 );
 
 
-CREATE FUNCTION more_recent_revision(a article_revisions, b article_revisions)
-  RETURNS article_revisions AS $$
-BEGIN
-  IF a.date > b.date THEN
-    RETURN a;
-  ELSE
-    RETURN b;
-  END IF;
-END
-$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION more_recent_revision(
+  IN article_revisions,
+  IN article_revisions,
+  OUT article_revisions
+) AS $$
+  SELECT $1 WHERE $1.date > $2.date OR $2.date IS NULL
+  UNION
+  SELECT $2 WHERE $1.date <= $2.date OR $1.date IS NULL
+  UNION
+  SELECT $1 WHERE $1.date IS NULL AND $2.date IS NULL
+$$ LANGUAGE SQL;
+
 
 CREATE AGGREGATE most_recent_revision (article_revisions) (
   SFUNC = more_recent_revision,
