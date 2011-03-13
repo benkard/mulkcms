@@ -87,9 +87,9 @@
   (let ((article-template (template "article")))
     (expand-template article-template article-params)))
 
-(defun paramify-article-data (revision-data comment-num &optional (comments nil commentary-p))
+(defun paramify-article-data (revision-data &optional (comments nil commentary-p))
   (destructuring-bind (rid article date title content author format status
-                       global-id publishing-date &rest args)
+                       global-id publishing-date comment-num &rest args)
       revision-data
     (declare (ignore args rid format author))
     (list :publishing-date publishing-date
@@ -160,20 +160,20 @@
 #-portable-mulkcms
 (defun find-all-revisions (characteristics &optional constraints)
   (query
-   (format nil
-           "SELECT (most_recent_revision(r)).*, (oldest_revision(r2)).date
-              FROM (SELECT article_revisions_for_characteristics(a.id, ~A)
-                           AS revision
-                      FROM articles a)
-                   AS mr
-              JOIN article_revisions r ON r.id = mr.revision
-              JOIN article_revisions r2 ON r.article = r2.article
-             WHERE r2.status IN ('published', 'syndicated')
-             GROUP BY r.article
-            HAVING ~A
-             ORDER BY (oldest_revision(r)).date DESC"
-           (make-characteristic-lists characteristics)
-           (or constraints "true"))))
+    (format nil
+            "SELECT (most_recent_revision(r)).*, d.publishing_date, c.comment_count
+               FROM (SELECT article_revisions_for_characteristics(a.id, ~A)
+                            AS revision
+                       FROM articles a)
+                    AS mr
+               JOIN article_revisions        r ON r.id = mr.revision
+               JOIN article_publishing_dates d ON d.article = r.article
+               JOIN article_comment_counts   c ON c.article = r.article
+              GROUP BY r.article, d.publishing_date, c.comment_count
+             HAVING ~A
+              ORDER BY d.publishing_date DESC"
+            (make-characteristic-lists characteristics)
+            (or constraints "true"))))
 
 
 #+portable-mulkcms
@@ -331,9 +331,18 @@
                                                :head head
                                                :body body)))))))
 
-(defun paramify-article (revision-data &optional commentary-p)
-  (let* ((article (second revision-data))
-         (comment-data (if commentary-p
+(defun paramify-article (revision-data &optional commentary-p comments)
+  (let* (
+         )
+    (cond ((null revision-data)
+           nil)
+          (commentary-p
+           (paramify-article-data revision-data comments))
+          (t
+           (paramify-article-data revision-data)))))
+
+(defun find-article-params (article characteristics &optional commentary-p)
+  (let* ((comment-data (if commentary-p
                            (query "SELECT id FROM comments WHERE article = $1"
                                   article
                                   :column)
@@ -351,27 +360,8 @@
                                        :lists)))
                              comment-data)))
          (comments (mapcar #'paramify-comment comment-revision-data))
-         (comment-num
-          (if commentary-p
-              (length comment-revision-data)
-              (query "SELECT count(*)
-                        FROM comments
-                       WHERE article = $1
-                         AND EXISTS (SELECT *
-                                       FROM comment_revisions
-                                      WHERE comment = comments.id
-                                        AND status IN ('approved', 'trusted'))"
-                     article
-                     :single))))
-    (cond ((null revision-data)
-           nil)
-          (commentary-p
-           (paramify-article-data revision-data comment-num comments))
-          (t
-           (paramify-article-data revision-data comment-num)))))
-
-(defun find-article-params (article characteristics &optional commentary-p)
-  (let* ((revisions (find-article-revisions article characteristics))
+         (comment-num (length comments))  ;FIXME
+         (revisions (find-article-revisions article characteristics))
          (revision (first revisions))
          (revision-data (query "SELECT *
                                   FROM article_revisions
@@ -387,8 +377,10 @@
     (cond ((null revision-data)
            nil)
           (t
-           (paramify-article (append revision-data (list publishing-date))
-                             commentary-p)))))
+           (paramify-article (append revision-data (list publishing-date
+                                                         comment-num))
+                             commentary-p
+                             comments)))))
 
 (defun find-article-request-handler (path &optional action characteristics)
   (with-db

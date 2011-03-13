@@ -269,4 +269,26 @@ CREATE AGGREGATE most_recent_revision (article_revisions) (
   STYPE = article_revisions
 );
 
+
+CREATE VIEW article_comment_counts AS
+  SELECT a.id       AS article,
+         count(c.*) AS comment_count
+    FROM articles a
+    LEFT JOIN comments c
+      ON c.article = a.id
+     AND EXISTS (SELECT *
+                   FROM comment_revisions
+                  WHERE comment = c.id
+                    AND status IN ('approved', 'trusted'))
+   GROUP BY a.id;
+
+
+CREATE VIEW article_publishing_dates AS
+  SELECT article   AS article,
+         min(date) AS publishing_date
+    FROM article_revisions
+   WHERE status IN ('published', 'syndicated')
+   GROUP BY article;
+
+
 COMMIT;
