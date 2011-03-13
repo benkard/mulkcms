@@ -238,7 +238,7 @@ $$ LANGUAGE plpgsql;
 --   SELECT article_revisions_for_characteristics(70, ARRAY[ROW(ARRAY[ROW('language', 'de')::characteristic])]::characteristic_list[]);
 
 
-CREATE OR REPLACE FUNCTION older_revision(
+CREATE FUNCTION older_revision(
   IN article_revisions,
   IN article_revisions,
   OUT article_revisions
@@ -256,7 +256,7 @@ CREATE AGGREGATE oldest_revision (article_revisions) (
 );
 
 
-CREATE OR REPLACE FUNCTION more_recent_revision(
+CREATE FUNCTION more_recent_revision(
   IN article_revisions,
   IN article_revisions,
   OUT article_revisions
@@ -279,7 +279,7 @@ CREATE VIEW article_comment_counts AS
   SELECT a.id       AS article,
          count(c.*) AS comment_count
     FROM articles a
-    LEFT JOIN comments c
+    LEFT OUTER JOIN comments c
       ON c.article = a.id
      AND EXISTS (SELECT *
                    FROM comment_revisions
