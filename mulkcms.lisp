@@ -13,10 +13,27 @@
                *template-formatters*)))
 
 
+(defun make-uuid ()
+  ;; Taken from Mulkblog.
+  "Generate a version 4 UUID according to RFC 4122, section 4.4."
+  (format nil "~(~8,'0x-~4,'0x-~4,'0x-~2,'0x~2,'0x-~12,'0x~)"
+          (random #x100000000)                ;time_low
+          (random #x10000)                    ;time_mid
+          (logior #b0100000000000000
+                  (logand #b0000111111111111
+                          (random #x10000)))  ;time_hi_and_version
+          (logior #b10000000
+                  (logand #b00111111
+                          (random #x100)))    ;clock_seq_hi_and_reserved
+          (random #x100)                      ;clock_seq_low
+          (random #x1000000000000)))
+
+
 (defun find-canonical-article-alias (article)
   (query "SELECT alias FROM article_aliases WHERE article = $1 LIMIT 1"
          article
          :single))
+
 
 (defun link-to (action &key comment-id article-id revision-id (absolute nil))
   ;; Taken from Mulkblog.
@@ -465,12 +482,10 @@
   (parse-row-or-array string))
 
 (defun find-article-summary-handler (path params &optional action characteristics)
-  (declare (ignore characteristics params action))
-  (print path)
+  (declare (ignore characteristics action))
   (when (string= path "admin/articles")
     (lambda ()
       (with-authorization (user-id :require :admin)
-        (declare (ignore user-id))
         (with-db
           (labels ((paramify-revision-row (row article-id)
                      (destructuring-bind (id title date characteristics)
@@ -491,6 +506,22 @@
                                :aliases aliases
                                :revisions revision-data
                                :revision-num (length revision-data))))))
+            
+            (when (assoc "add-alias" params :test #'equal)
+              (with-transaction ()
+                (query "INSERT INTO article_aliases(article, alias) VALUES ($1, $2)"
+                       (parse-integer (cdr (assoc "article" params :test #'equal)))
+                       (cdr (assoc "alias" params :test #'equal))
+                       :none)))
+            (when (assoc "create-article" params :test #'equal)
+              (with-transaction ()
+                (let ((article-id (query "INSERT INTO articles(type) VALUES (1) RETURNING id"
+                                         :single!)))
+                  (query "INSERT INTO article_revisions(article, title, content, author, format, status, global_id)
+                               VALUES ($1, '', '', $2, 'html', 'draft', $3)"
+                         article-id
+                         user-id
+                         (format nil "urn:uuid:~A" (make-uuid))))))
             (let* ((articles (query "SELECT a.id,
                                             array_agg(DISTINCT
                                                       ROW(r.id,
@@ -517,7 +548,10 @@
                                            GROUP BY r.id, r.title, r.date)
                                          AS r
                                          ON bt.revision = r.id
-                                      GROUP BY a.id"
+                                       LEFT OUTER JOIN article_publishing_dates pd
+                                         ON pd.article = a.id
+                                      GROUP BY a.id, pd.publishing_date
+                                      ORDER BY pd.publishing_date DESC"
                                     :rows))
                    (article-data (mapcar #'paramify-article-row articles)))
               (expand-page (template "article_summary_page")
@@ -528,6 +562,8 @@
                                  :branch-title-label "Title"
                                  :characteristics-label "Characteristics"
                                  :date-label "Date"
+                                 :create-button-label "Add article"
+                                 :add-alias-label "+"
                                  :articles article-data)))))))))
 
 (defun find-article-request-handler (path params &optional action characteristics)

@@ -3,6 +3,13 @@
 {.end}
 
 {.section body}
+<p>
+  <form method="POST">
+    <input name="create-article" type="hidden" />
+    <input type="submit" value="{create-button-label|html-attr-value}" />
+  </form>
+</p>
+
 <table>
   <thead>
     <th>{id-label}</th>
@@ -22,12 +29,19 @@
           rowspan="{revision-num|html-attr-value}">
         {.repeated section aliases}
         {@|html}
-        {.alternates with}
         <br />
         {.end}
+        <form method="POST" style="white-space: nowrap">
+          <input name="add-alias" type="hidden" />
+          <input name="article" type="hidden" value="{id|html-attr-value}" />
+          <input name="alias" type="text" size="10" />
+          <input type="submit" value="{add-alias-label|html-attr-value}" />
+        </form>
       </td>
       {.repeated section revisions}
-      <td class="revision-id">{id|html}</a></td>
+      <td class="revision-id">
+        <a href="{link|html-attr-value}">{id|html}</a>
+      </td>
       <td class="revision-title">
         <a href="{link|html-attr-value}">{title|html}</a>
       </td>
