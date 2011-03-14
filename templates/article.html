@@ -61,8 +61,9 @@
     <form action="{action|html-attr-value}" accept-charset="UTF-8"
           enctype="application/x-www-form-urlencoded" method="post">
       <div style="display: none">
-        <input name="id" type="hidden" value="{article-id|html-attr-value}" />
-        <input name="action" type="hidden" value="post-comment" />
+        <input name="article" type="hidden" value="{article-id|html-attr-value}" />
+        <input name="revision" type="hidden" value="{revision|html-attr-value}" />
+        <input name="post-comment" type="hidden" />
       </div>
       <div class="comment-form-table">
         {.repeated section fields}
@@ -83,8 +84,7 @@
           </div>
           <div class="comment-form-input">
             <textarea id="comment-body" cols="60" rows="15"
-                      name="comment-body">
-            </textarea>
+                      name="body"></textarea>
           </div>
         </div>
       </div>

@@ -10,6 +10,16 @@
   <h1 id="main-title">{site-name|html}</h1>
   <div id="main-subtitle">{site-subtitle|html}</div>
 
+  {.section warnings}
+  <div id="warnings">
+    {.repeated section @}
+    <div class="journal-warning">
+      {@}
+    </div>
+    {.end}
+  </div>
+  {.end}
+
   <div id="articles">
   {.repeated section articles}
     {@|article-html}

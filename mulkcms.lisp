@@ -124,11 +124,25 @@
           :commentary (if commentary-p (list :comments comments) nil)
           :comment-submission (when commentary-p
                                 (list :fields (list (list :field-id "name"
-                                                          :field-label "Name"))
+                                                          :field-label "Name")
+                                                    (list :field-id "website"
+                                                          :field-label "Website")
+                                                    (list :field-id "email"
+                                                          :field-label "E-Mail"))
                                       :body-label "Message"
                                       :submit-button-label "Submit"
                                       :title "Submit a comment"
-                                      :notes "<p>NOTE: Do something.</p>"
+                                      :notes "<p><strong>Note:</strong>
+                                              This website uses <a
+                                              href=\"http://akismet.com/\">Akismet</a>
+                                              for spam detection.
+                                              E-mail addresses are never
+                                              disclosed to
+                                              anyone (including Akismet)
+                                              other than the site owner.
+                                              Comment format is plain
+                                              text.  Use blank lines to
+                                              separate paragraphs.</p>"
                                       :action (link-to :post-comment :article-id article)))
           :edit-link (link-to :edit :article-id article)
           :edit-button-label "Edit"
@@ -506,7 +520,6 @@
                                :aliases aliases
                                :revisions revision-data
                                :revision-num (length revision-data))))))
-            
             (when (assoc "add-alias" params :test #'equal)
               (with-transaction ()
                 (query "INSERT INTO article_aliases(article, alias) VALUES ($1, $2)"
@@ -649,10 +662,51 @@
                                            :root *base-uri*
                                            :site-name *site-name*
                                            :site-subtitle ""
-                                           :link "")))
+                                           :link ""))
+                    (submission-notice nil))
+               (when (assoc "post-comment" params :test #'equal)
+                 (let ((name     (cdr (assoc "name"     params :test #'equal)))
+                       (website  (cdr (assoc "website"  params :test #'equal)))
+                       (email    (cdr (assoc "email"    params :test #'equal)))
+                       (body     (cdr (assoc "body"     params :test #'equal)))
+                       (article  (cdr (assoc "article"  params :test #'equal)))
+                       (revision (cdr (assoc "revision" params :test #'equal))))
+                   (with-transaction ()
+                     (let ((comment (query "INSERT INTO comments(article, global_id)
+                                              VALUES ($1, $2)
+                                            RETURNING id"
+                                           article
+                                           (format nil "urn:uuid:~A" (make-uuid))
+                                           :single!))
+                           (author  (query "INSERT INTO users(name, status, email, website)
+                                              VALUES ($1, 'visitor', $2, $3)
+                                            RETURNING id"
+                                           name
+                                           email
+                                           website
+                                           :single!)))
+                       (query "INSERT INTO comment_revisions(comment, content, author, format, status, article_revision, submitter_ip, submitter_user_agent)
+                                 VALUES ($1, $2, $3, 'text', 'pending', $4, $5, $6)"
+                              comment
+                              body
+                              author
+                              revision
+                              (hunchentoot:real-remote-addr)
+                              (hunchentoot:user-agent)
+                              :none)
+                       (setq submission-notice
+                             "<p><strong>Note:</strong></p>
+
+                              <p>Your message has been received and put
+                              into the moderation queue.  It is now
+                              waiting for approval by one of the site's
+                              administrators.</p>")))))
                (expand-page page-template
                             (getf article-params :title)
                             (list* :articles (list article-params)
+                                   :warnings (if submission-notice
+                                                 (list submission-notice)
+                                                 nil)
                                    template-params))))))))))
 
 
