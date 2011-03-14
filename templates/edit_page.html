@@ -1,0 +1,42 @@
+{.section head}
+  <link rel="stylesheet" type="text/css"
+        href="{root|html-attr-value}style/journal.css" />
+  <link rel="stylesheet" type="text/css"
+        href="/journal/prettify/prettify.css"/>
+  <script type="text/javascript" src="/journal/prettify/prettify.js"></script>
+  <script type="text/javascript" src="/journal/prettify/lang-lisp.js"></script>
+{.end}
+
+{.section body}
+  <h1 id="main-title">{site-name|html}</h1>
+  <div id="main-subtitle">{site-subtitle|html}</div>
+
+  <form id="editing-form" method="POST" accept-charset="UTF-8"
+        action="{link|html-attr-value}">
+    <input name="edit" type="hidden" />
+    <input name="save" type="hidden" />
+    <input name="revision" type="hidden" value="{article.revision|html-attr-value}" />
+    <table id="editing-form-table">
+      <tr>
+        <td><label for="title-field">{title-label|html}</label></td>
+        <td><input type="text" id="title-field" name="title" value="{article.title|html}"></td>
+      </tr>
+      <tr>
+        <td><label for="content-field">{content-label|html}</label></td>
+        <td><textarea id="content-field" name="content" rows="20" cols="80">{article.body|html}</textarea></td>
+      </tr>
+      <tr>
+        <td></td>
+        <td><input type="checkbox" id="publish-p" name="publish-p" value="t" /><label for="publish-p">{publish-flag-label|html-attr-value}</label></td>
+      </tr>
+            <tr>
+        <td></td>
+        <td><input type="submit" value="{save-button-label|html-attr-value}" /></td>
+      </tr>
+    </table>
+  </form>
+
+  <div id="article-preview">
+    {article|article-html}
+  </div>
+{.end}
