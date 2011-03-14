@@ -1,0 +1,44 @@
+{.section head}
+  <link href="/style/admin.css" rel="stylesheet" type="text/css"/>
+{.end}
+
+{.section body}
+<table>
+  <thead>
+    <th>{id-label}</th>
+    <th>{aliases-label}</th>
+    <th>{branch-label}</th>
+    <th>{branch-title-label}</th>
+    <th>{date-label}</th>
+    <th>{characteristics-label}</th>
+  </thead>
+
+  <tbody>
+    {.repeated section articles}
+    <tr class="major-row">
+      <td class="article-id"
+          rowspan="{revision-num|html-attr-value}">{id|html}</td>
+      <td class="article-aliases"
+          rowspan="{revision-num|html-attr-value}">
+        {.repeated section aliases}
+        {@|html}
+        {.alternates with}
+        <br />
+        {.end}
+      </td>
+      {.repeated section revisions}
+      <td class="revision-id">{id|html}</a></td>
+      <td class="revision-title">
+        <a href="{link|html-attr-value}">{title|html}</a>
+      </td>
+      <td class="revision-date">{date|html}</td>
+      <td class="revision-characteristics">{characteristics|html}</td>
+      {.alternates with}
+    </tr>
+    <tr class="minor-row">
+      {.end}
+    </tr>
+    {.end}
+  </tbody>
+</table>
+{.end}

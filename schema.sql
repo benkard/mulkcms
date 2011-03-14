@@ -275,6 +275,11 @@ CREATE AGGREGATE most_recent_revision (article_revisions) (
 );
 
 
+CREATE OR REPLACE FUNCTION branch_tips(articles) AS $$
+  
+$$ LANGUAGE SQL STABLE;
+
+
 CREATE VIEW article_comment_counts AS
   SELECT a.id       AS article,
          count(c.*) AS comment_count
@@ -294,6 +299,16 @@ CREATE VIEW article_publishing_dates AS
     FROM article_revisions
    WHERE status IN ('published', 'syndicated')
    GROUP BY article;
+
+
+CREATE VIEW article_branch_tips AS
+  SELECT article              AS article,
+         article_revisions.id AS revision
+    FROM (SELECT id FROM article_revisions
+          EXCEPT
+          SELECT parent FROM article_revision_parenthood)
+      AS branch_tips
+    JOIN article_revisions USING (id);
 
 
 COMMIT;

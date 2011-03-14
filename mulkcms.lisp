@@ -18,7 +18,7 @@
          article
          :single))
 
-(defun link-to (action &key comment-id article-id (absolute nil))
+(defun link-to (action &key comment-id article-id revision-id (absolute nil))
   ;; Taken from Mulkblog.
   (with-output-to-string (out)
     (format out "~A" (if absolute *base-uri* ""))
@@ -35,7 +35,8 @@
                        (article-id (values "/~A" article-base))
                        (t "/")))
           (:view-comments (values "/~A#comments" article-base))
-          ((:edit :preview) (values "/~A?edit" article-base))
+          ((:edit :preview) (cond (revision-id (values "/~A?edit&revision=~D" article-base revision-id))
+                                  (t           (values "/~A?edit" article-base))))
           (:post-comment (values "/~A" article-base))
           (:trackback (values "/~A?trackback" article-base))
           (:view-atom-entry (values "/~A?atom" article-base))
@@ -407,11 +408,11 @@
     (with-db
       (let ((user-id (query (format nil
                                     "SELECT id
-                                     FROM users u
-                                     JOIN passwords p ON u.id = p.user
-                                    WHERE p.password = $2
-                                      AND u.name = $1
-                                      AND ~A"
+                                       FROM users u
+                                       JOIN passwords p ON u.id = p.user
+                                      WHERE p.password = $2
+                                        AND u.name = $1
+                                        AND ~A"
                                     (ecase require
                                       ((nil) "true")
                                       ((:admin) "u.status = 'admin'")
@@ -423,6 +424,111 @@
         (if user-id
             (funcall thunk user-id)
             (hunchentoot:require-authorization "MulkCMS"))))))
+
+(defun parse-row-or-array (string)
+  (let ((output (list)))
+    (with-input-from-string (in string)
+      (read-char in)
+      (loop for char = (read-char in nil nil nil)
+            while (and char (not (member char (list #\} #\)))))
+            do (push (with-output-to-string (out)
+                       (if (char= char #\")
+                           (loop for c = (read-char in)
+                                 if (char= c #\\)
+                                   do (format out "~C" (read-char in))
+                                 else if (member c (list #\"))
+                                   do (if (char= (peek-char nil in) #\")
+                                          (progn
+                                            (format out "\"")
+                                            (read-char in))
+                                          (progn
+                                            (read-char in)
+                                            (return)))
+                                 else 
+                                   do (format out "~C" c))
+                           (progn
+                             (format out "~C" char)
+                             (loop for c = (read-char in)
+                                   until (member c (list #\) #\, #\}))
+                                   do (format out "~C" c)))))
+                     output)))
+    (nreverse output)))
+
+(defun parse-row (string)
+  (assert (and (char= (char string 0)                    #\()
+               (char= (char string (1- (length string))) #\))))
+  (parse-row-or-array string))
+
+(defun parse-array (string)
+  (assert (and (char= (char string 0)                    #\{)
+               (char= (char string (1- (length string))) #\})))
+  (parse-row-or-array string))
+
+(defun find-article-summary-handler (path params &optional action characteristics)
+  (declare (ignore characteristics params action))
+  (print path)
+  (when (string= path "admin/articles")
+    (lambda ()
+      (with-authorization (user-id :require :admin)
+        (declare (ignore user-id))
+        (with-db
+          (labels ((paramify-revision-row (row article-id)
+                     (destructuring-bind (id title date characteristics)
+                         row
+                       (list :id id
+                             :title title
+                             :date date
+                             :link (link-to :edit :article-id article-id :revision-id id)
+                             :characteristics (parse-array characteristics))))
+                   (paramify-article-row (row)
+                     (destructuring-bind (id revisions aliases)
+                         row
+                       (let ((revision-data (mapcar (lambda (x)
+                                                      (paramify-revision-row x id))
+                                                    (mapcar #'parse-row
+                                                            (parse-array revisions)))))
+                         (list :id id
+                               :aliases aliases
+                               :revisions revision-data
+                               :revision-num (length revision-data))))))
+            (let* ((articles (query "SELECT a.id,
+                                            array_agg(DISTINCT
+                                                      ROW(r.id,
+                                                          r.title,
+                                                          r.date,
+                                                          r.characteristics)),
+                                            array_agg(DISTINCT aa.alias)
+                                       FROM articles a
+                                       LEFT OUTER JOIN article_aliases aa
+                                         ON aa.article = a.id
+                                       LEFT OUTER JOIN article_branch_tips bt
+                                         ON bt.article = a.id
+                                       LEFT OUTER JOIN
+                                         (SELECT r.id    AS id,
+                                                 r.title AS title,
+                                                 r.date  AS date,
+                                                 array_agg(DISTINCT
+                                                           ROW(ch.characteristic, 
+                                                               ch.value))
+                                                   AS characteristics
+                                            FROM article_revisions r
+                                            LEFT OUTER JOIN article_revision_characteristics ch
+                                              ON ch.revision = r.id
+                                           GROUP BY r.id, r.title, r.date)
+                                         AS r
+                                         ON bt.revision = r.id
+                                      GROUP BY a.id"
+                                    :rows))
+                   (article-data (mapcar #'paramify-article-row articles)))
+              (expand-page (template "article_summary_page")
+                           "Articles"
+                           (list :id-label "Article"
+                                 :aliases-label "Aliases"
+                                 :branch-label "Branch"
+                                 :branch-title-label "Title"
+                                 :characteristics-label "Characteristics"
+                                 :date-label "Date"
+                                 :articles article-data)))))))))
 
 (defun find-article-request-handler (path params &optional action characteristics)
   (with-db
@@ -445,7 +551,9 @@
                                              (cdr (assoc "content" params :test #'equal))
                                              user-id
                                              "html"
-                                             (if (hunchentoot:post-parameter "publish-p")
+                                             (if (assoc "publish-p"
+                                                        params
+                                                        :test #'equal)
                                                  "syndicated"
                                                  "draft")
                                              :row)
@@ -462,9 +570,6 @@
                         (editor-template (template "edit_page")))
                    (assert (not (null revision)))
                    (when (assoc "save" params :test #'equal)
-                     (print (parse-integer (cdr (assoc "revision"
-                                                       params
-                                                       :test #'equal))))
                      (query "INSERT INTO article_revision_parenthood(parent, child)
                                   VALUES ($1, $2)"
                             (parse-integer (cdr (assoc "revision"
@@ -521,7 +626,10 @@
 
 
 (defun find-request-handler (path params)
-  (or (find-journal-archive-request-handler
+  (or (find-article-summary-handler
+       path
+       params)
+      (find-journal-archive-request-handler
        path
        (assoc "full" params :test #'equal)
        (cond ((assoc "feed" params :test #'equal) :view-feed)

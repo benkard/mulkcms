@@ -1,10 +1,5 @@
 (in-package #:mulkcms-hunchentoot)
 
-#+(or)
-(define-easy-handler handle-admin-request (action)
-  ;; XXX
-  )
-
 (defun dispatch-static-file-request (request)
   (let* ((relative-path (subseq (script-name request) 1))
          (file (merge-pathnames relative-path *static-files*)))
@@ -23,8 +18,7 @@
 
 (defun setup-handlers ()
   (setq *dispatch-table*
-        (list* (create-prefix-dispatcher "/admin" 'handle-admin-request)
-               'dispatch-mulkcms-request
+        (list* 'dispatch-mulkcms-request
                'dispatch-static-file-request
                *dispatch-table*))
   (setq *default-handler*

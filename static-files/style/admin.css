@@ -1,0 +1,40 @@
+table, td, th, tr.major-row {
+  border-color: #666;
+  border-width: 2px;
+}
+
+table {
+  border-collapse: collapse;
+  border-style: solid;
+}
+
+td, th {
+  border-right-style: solid;
+  border-left-style: solid;
+  border-top-style: none;
+  border-bottom-style: none;
+}
+
+tr.major-row {
+  border-top-style: solid;
+}
+
+tr.minor-row {
+  border-top-style: solid;
+  border-width: 2px;
+  border-color: #bbb;
+}
+
+table {
+  border-collapse: collapse
+}
+
+td {
+  vertical-align: top;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+td.article-id, td.revision-id {
+  text-align: right;
+}
