@@ -341,12 +341,17 @@
 
 (defun paramify-comment (comment-revision-data)
   (destructuring-bind (crid comment date content author format status
-                       article-revision &rest args)
+                       article-revision submitter-ip user-agent
+                       &rest args)
       comment-revision-data
-    (declare (ignore args crid status format))
+    (declare (ignore args crid status format submitter-ip user-agent))
     (destructuring-bind (author-name author-website)
-        (query "SELECT name, website FROM users WHERE id = $1" author :row)
-      (let ((article (query "SELECT article FROM article_revisions WHERE id = $1"
+        (query "SELECT name, website FROM users WHERE id = $1"
+               author
+               :row)
+      (let ((article (query "SELECT article
+                               FROM article_revisions
+                              WHERE id = $1"
                             article-revision
                             :single!)))
         (list :publishing-date date
@@ -744,7 +749,9 @@
                                                  WHERE articles.id = $1"
                                                article
                                                :single!))
-                    (article-params (find-article-params article characteristics t))
+                    (article-params (find-article-params article
+                                                         characteristics
+                                                         t))
                     (page-template (template page-template-name))
                     (template-params (list :title (getf article-params :title)
                                            :root *base-uri*
