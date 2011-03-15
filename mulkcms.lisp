@@ -782,73 +782,78 @@
         (:view
          (lambda ()
            (with-db
-             (let* ((page-template-name (query "SELECT page_template FROM articles
+             (with-cache (path (query "SELECT max(date)
+                                         FROM article_revisions
+                                        WHERE article = $1"
+                                      article
+                                      :single))
+               (let* ((page-template-name (query "SELECT page_template FROM articles
                                                   JOIN article_types
                                                     ON articles.type = article_types.id
                                                  WHERE articles.id = $1"
-                                               article
-                                               :single!))
-                    (article-params (find-article-params article
-                                                         characteristics
-                                                         t))
-                    (page-template (template page-template-name))
-                    (template-params (list :title (getf article-params :title)
-                                           :root *base-uri*
-                                           :site-name *site-name*
-                                           :site-subtitle ""
-                                           :link ""))
-                    (submission-notice nil))
-               (when (assoc "post-comment" params :test #'equal)
-                 (let* ((name     (cdr (assoc "name"            params :test #'equal)))
-                        (website  (cdr (assoc "website"         params :test #'equal)))
-                        (email    (cdr (assoc "email"           params :test #'equal)))
-                        (body     (cdr (assoc "body"            params :test #'equal)))
-                        (article  (cdr (assoc "article"         params :test #'equal)))
-                        (revision (cdr (assoc "revision"        params :test #'equal)))
-                        (tkey     (cdr (assoc "transaction-key" params :test #'equal)))
-                        (salt     (cdr (assoc "salt"            params :test #'equal)))
-                        (spam-p   (if tkey
-                                      (or (null salt)
-                                          (not (hashcash-hash-validp
-                                                (format nil "~A:~A:~A" body tkey salt))))
-                                      (spamp/akismet body name website
-                                                     (hunchentoot:real-remote-addr)
-                                                     (hunchentoot:user-agent)))))
-                   (with-transaction ()
-                     (let ((comment (query "INSERT INTO comments(article, global_id)
+                                                 article
+                                                 :single!))
+                      (article-params (find-article-params article
+                                                           characteristics
+                                                           t))
+                      (page-template (template page-template-name))
+                      (template-params (list :title (getf article-params :title)
+                                             :root *base-uri*
+                                             :site-name *site-name*
+                                             :site-subtitle ""
+                                             :link ""))
+                      (submission-notice nil))
+                 (when (assoc "post-comment" params :test #'equal)
+                   (let* ((name     (cdr (assoc "name"            params :test #'equal)))
+                          (website  (cdr (assoc "website"         params :test #'equal)))
+                          (email    (cdr (assoc "email"           params :test #'equal)))
+                          (body     (cdr (assoc "body"            params :test #'equal)))
+                          (article  (cdr (assoc "article"         params :test #'equal)))
+                          (revision (cdr (assoc "revision"        params :test #'equal)))
+                          (tkey     (cdr (assoc "transaction-key" params :test #'equal)))
+                          (salt     (cdr (assoc "salt"            params :test #'equal)))
+                          (spam-p   (if tkey
+                                        (or (null salt)
+                                            (not (hashcash-hash-validp
+                                                  (format nil "~A:~A:~A" body tkey salt))))
+                                        (spamp/akismet body name website
+                                                       (hunchentoot:real-remote-addr)
+                                                       (hunchentoot:user-agent)))))
+                     (with-transaction ()
+                       (let ((comment (query "INSERT INTO comments(article, global_id)
                                               VALUES ($1, $2)
                                             RETURNING id"
-                                           article
-                                           (format nil "urn:uuid:~A" (make-uuid))
-                                           :single!))
-                           (author  (query "INSERT INTO users(name, status, email, website)
+                                             article
+                                             (format nil "urn:uuid:~A" (make-uuid))
+                                             :single!))
+                             (author  (query "INSERT INTO users(name, status, email, website)
                                               VALUES ($1, 'visitor', $2, $3)
                                             RETURNING id"
-                                           name
-                                           email
-                                           website
-                                           :single!)))
-                       (when tkey
-                         (query "INSERT INTO used_transaction_keys(key) VALUES ($1)"
-                                tkey
-                                :none))
-                       (query "INSERT INTO comment_revisions(comment, content, author, format, status, article_revision, submitter_ip, submitter_user_agent)
+                                             name
+                                             email
+                                             website
+                                             :single!)))
+                         (when tkey
+                           (query "INSERT INTO used_transaction_keys(key) VALUES ($1)"
+                                  tkey
+                                  :none))
+                         (query "INSERT INTO comment_revisions(comment, content, author, format, status, article_revision, submitter_ip, submitter_user_agent)
                                  VALUES ($1, $2, $3, 'text', $4, $5, $6, $7)"
-                              comment
-                              body
-                              author
-                              (if spam-p
-                                  "pending"
-                                  "spam")
-                              revision
-                              (hunchentoot:real-remote-addr)
-                              (hunchentoot:user-agent)
-                              :none)
-                       (setq submission-notice
-                             (cond
-                               (spam-p
-                                (list
-                                 :content "<p><strong>Warning:</strong></p>
+                                comment
+                                body
+                                author
+                                (if spam-p
+                                    "pending"
+                                    "spam")
+                                revision
+                                (hunchentoot:real-remote-addr)
+                                (hunchentoot:user-agent)
+                                :none)
+                         (setq submission-notice
+                               (cond
+                                 (spam-p
+                                  (list
+                                   :content "<p><strong>Warning:</strong></p>
 
                                            <p>Your message could not be
                                            verified as non-spam.  If
@@ -862,24 +867,24 @@
                                            administrators, who will be
                                            able to manually approve your
                                            comment.</p>"
-                                 :message-type "warning"))
-                               (t
-                                (list
-                                 :content "<p><strong>Note:</strong></p>
+                                   :message-type "warning"))
+                                 (t
+                                  (list
+                                   :content "<p><strong>Note:</strong></p>
 
                                            <p>Your message has been received and
                                            classified as non-spam.  It has thus
                                            been put into the moderation queue and
                                            is now awaiting approval by one of the
                                            site's administrators.</p>"
-                                 :message-type "success-message"))))))))
-               (expand-page page-template
-                            (getf article-params :title)
-                            (list* :articles (list article-params)
-                                   :info-messages (if submission-notice
-                                                      (list submission-notice)
-                                                      nil)
-                                   template-params))))))))))
+                                   :message-type "success-message"))))))))
+                 (expand-page page-template
+                              (getf article-params :title)
+                              (list* :articles (list article-params)
+                                     :info-messages (if submission-notice
+                                                        (list submission-notice)
+                                                        nil)
+                                     template-params)))))))))))
 
 
 
