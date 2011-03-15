@@ -18,21 +18,33 @@ jQuery(function($) {
         url: "/RPC/generate-transaction-key",
         dataType: 'json',
         success: function(tkey) {
-          form.find(':submit').attr("disabled", true);
           var salt = 0;
           var text = form.find('textarea').val().replace(/\s+/g, "");
-          while (!acceptable_cashhash(Sha256.hash(text + ":" + tkey + ":" + salt))) {
-            salt++;
-          }
-          form.prepend('<input type="hidden" name="transaction-key" value="' + tkey + '" />');
-          form.prepend('<input type="hidden" name="salt"            value="' + salt + '" />');
-          form_augmented_p = true;
-          form.find(':submit').removeAttr("disabled");
-          $('.comment-form').submit();
-          form.submit();
-          console.log("tkey = " + tkey);
-          console.log("salt = " + salt);
-          console.log("Submitted!");
+          var submit_button = form.find(':submit');
+          var status_message;
+          submit_button.after('<span class="hashcash-status-message">Calculating Hashcash...</span>');
+          status_message = form.find('.hashcash-status-message');
+          status_message.fadeOut(0);
+          status_message.fadeIn(200);
+          submit_button.attr("disabled", true);
+          var tryHashcash = function () {
+            var tryRightNow = 1000;
+            while (!acceptable_cashhash(Sha256.hash(text + ":" + tkey + ":" + salt))) {
+              salt++;
+              tryRightNow--;
+              if (tryRightNow === 0) {
+                setTimeout(tryHashcash, 0);
+                return;
+              }
+            }
+            form.prepend('<input type="hidden" name="transaction-key" value="' + tkey + '" />');
+            form.prepend('<input type="hidden" name="salt"            value="' + salt + '" />');
+            form_augmented_p = true;
+            //submit_button.removeAttr("disabled");
+            $('.comment-form').submit();
+            form.submit();
+          };
+          setTimeout(tryHashcash, 0);
         }
       });
       return false;
