@@ -16,3 +16,7 @@
 
 (defparameter *server-address* "127.0.0.1")
 (defparameter *server-port* 9201)
+
+;; Set the following to your Wordpress key if you want to use Akismet.
+;; Otherwise, set it to NIL or comment the line out.
+(defparameter *wordpress-key* nil)
