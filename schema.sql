@@ -167,8 +167,8 @@ CREATE TABLE user_settings(
 );
 
 CREATE TABLE used_transaction_keys(
-  key BIGINT
-  PRIMARY KEY (key);
+  key BIGINT,
+  PRIMARY KEY (key)
 );
 CREATE SEQUENCE transaction_key_seq;
 
@@ -185,7 +185,7 @@ CREATE TYPE characteristic_list AS (
 
 CREATE FUNCTION article_revisions_for_characteristics_with_fixed_ones(
   article INTEGER,
-  characteristics characteristic_list[],
+  characteristic_lists characteristic_list[],
   fixed_characteristics characteristic_list
 ) RETURNS INTEGER[] AS $BODY$
 DECLARE
@@ -209,11 +209,11 @@ BEGIN
   query := query || $$ORDER BY date DESC$$;
   EXECUTE ('SELECT array(' || query || ')') INTO revisions;
   IF array_length(revisions, 1) > 0 THEN
-    IF array_length(characteristics, 1) > 0 THEN
-      FOR fchar IN SELECT unnest(characteristics[1].characteristics) AS val LOOP
+    IF array_length(characteristic_lists, 1) > 0 THEN
+      FOR fchar IN SELECT unnest((characteristic_lists[1]).characteristics) AS val LOOP
         specific_revisions := article_revisions_for_characteristics_with_fixed_ones(
           article,
-          characteristics[2:array_upper(characteristics, 1)],
+          characteristic_lists[2:array_upper(characteristic_lists, 1)],
           ROW(array_prepend(fchar.val, fixed_characteristics.characteristics))::characteristic_list
         );
         IF array_length(specific_revisions, 1) > 0 THEN
@@ -232,10 +232,10 @@ $BODY$ LANGUAGE plpgsql STABLE;
 
 CREATE FUNCTION article_revisions_for_characteristics(
   article INTEGER,
-  characteristics characteristic_list[]
+  characteristic_lists characteristic_list[]
 ) RETURNS SETOF INTEGER AS $$
 BEGIN
-  RETURN QUERY SELECT unnest(article_revisions_for_characteristics_with_fixed_ones(article, characteristics, ROW(ARRAY[]::characteristic[])::characteristic_list));
+  RETURN QUERY SELECT unnest(article_revisions_for_characteristics_with_fixed_ones(article, characteristic_lists, ROW(ARRAY[]::characteristic[])::characteristic_list));
 END
 $$ LANGUAGE plpgsql STABLE;
 
@@ -278,11 +278,6 @@ CREATE AGGREGATE most_recent_revision (article_revisions) (
   SFUNC = more_recent_revision,
   STYPE = article_revisions
 );
-
-
-CREATE OR REPLACE FUNCTION branch_tips(articles) AS $$
-  
-$$ LANGUAGE SQL STABLE;
 
 
 CREATE VIEW article_comment_counts AS
