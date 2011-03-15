@@ -35,6 +35,42 @@
     (every #'zerop (subseq digest 0 2))))
 
 
+(defun akismet-login ()
+  ;; Taken from Mulkblog.
+  (drakma:http-request "http://rest.akismet.com/1.1/verify-key"
+                       :protocol :http/1.0
+                       :method :post
+                       :user-agent "MulkCMS/0.1.0"
+                       :parameters `(("key" . ,*wordpress-key*)
+                                     ("blog" . ,*base-uri*))))
+
+
+(defun akismet-check-comment (body author-name author-website user-agent submitter-ip)
+  ;; Taken from Mulkblog.
+  (drakma:http-request
+   (format nil
+           "http://~A.rest.akismet.com/1.1/comment-check"
+           *wordpress-key*)
+   :protocol :http/1.0
+   :method :post
+   :user-agent "Mulk Journal/0.0.1"
+   :parameters `(("blog" . ,*base-uri*)
+                 ("user_ip" . ,submitter-ip)
+                 ("user_agent" . ,user-agent)
+                 ("comment_type" . "comment")
+                 ("comment_author" . ,author-name)
+                 ("comment_author_url" . ,author-website)
+                 ("comment_content" . ,body))))
+
+
+(defun spamp/akismet (&rest comment-data)
+  ;; Taken from Mulkblog.
+  (when (and (boundp '*wordpress-key*) *wordpress-key*)
+    (ignore-errors
+      (akismet-login)
+      (string= "true" (apply #'akismet-check-comment comment-data)))))
+
+
 (defun find-canonical-article-alias (article)
   (query "SELECT alias FROM article_aliases WHERE article = $1 LIMIT 1"
          article
@@ -681,10 +717,13 @@
                         (revision (cdr (assoc "revision"        params :test #'equal)))
                         (tkey     (cdr (assoc "transaction-key" params :test #'equal)))
                         (salt     (cdr (assoc "salt"            params :test #'equal)))
-                        (spam-p   (or (null tkey)
-                                      (null salt)
-                                      (not (hashcash-hash-validp
-                                            (format nil "~A:~A:~A" body tkey salt))))))
+                        (spam-p   (if tkey
+                                      (or (null salt)
+                                          (not (hashcash-hash-validp
+                                                (format nil "~A:~A:~A" body tkey salt))))
+                                      (spamp/akismet body name website
+                                                     (hunchentoot:real-remote-addr)
+                                                     (hunchentoot:user-agent)))))
                    (with-transaction ()
                      (let ((comment (query "INSERT INTO comments(article, global_id)
                                               VALUES ($1, $2)
