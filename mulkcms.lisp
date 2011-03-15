@@ -374,8 +374,10 @@
 
 (defun find-journal-archive-request-handler (path full-p &optional action characteristics)
   (declare (ignore action))
-  (when (or (string= path "journal")
-            (string= path "journal/"))
+  (when (member path '("journal" "journal/"
+                       "feed" "feed/"
+                       "journal/feed" "journal/feed")
+                :test #'string=)
     (lambda ()
       (with-db
         (let* (#+portable-mulkcms
@@ -394,31 +396,63 @@
                                                       WHERE article = r.article
                                                         AND alias LIKE 'journal/%')")))
                (displayed-revisions (if full-p revisions (subseq revisions 0 10)))
-               (page-skeleton (template "page_skeleton"))
-               (page-template (template "journal_page"))
-               (template-params (list :title *site-name*
-                                      :root *base-uri*
-                                      :site-name *site-name*
-                                      :site-subtitle ""
-                                      :link ""
-                                      :full-archive-link ""
-                                      :full-archive-label "Full archive (slow!)"
-                                      :archive-title "Older posts"
-                                      :archive-table-caption "Posts by date"
-                                      :archive-title-label "Title"
-                                      :archive-date-label "Date"
-                                      :archive-comments-label "Comments"))
-               (head (expand-template page-template (list* :head t
-                                                           :articles displayed-revisions
-                                                           :minor-articles revisions
-                                                           template-params)))
-               (body (expand-template page-template (list* :body t
-                                                           :articles displayed-revisions
-                                                           :minor-articles revisions
-                                                           template-params))))
-          (expand-template page-skeleton (list :title *site-name*
-                                               :head head
-                                               :body body)))))))
+               )
+          (cond
+            ((member path '("journal" "journal/") :test #'string=)
+             (let* ((page-skeleton (template "page_skeleton"))
+                    (page-template (template "journal_page"))
+                    (template-params
+                     (list :title *site-name*
+                           :root *base-uri*
+                           :site-name *site-name*
+                           :site-subtitle ""
+                           :link ""
+                           :full-archive-link ""
+                           :full-archive-label "Full archive (slow!)"
+                           :archive-title "Older posts"
+                           :archive-table-caption "Posts by date"
+                           :archive-title-label "Title"
+                           :archive-date-label "Date"
+                           :archive-comments-label "Comments"))
+                    (head (expand-template
+                           page-template
+                           (list* :head t
+                                  :articles displayed-revisions
+                                  :minor-articles revisions
+                                  template-params)))
+                    (body (expand-template
+                           page-template
+                           (list* :body t
+                                  :articles displayed-revisions
+                                  :minor-articles revisions
+                                  template-params))))
+               (expand-template page-skeleton (list :title *site-name*
+                                                    :head head
+                                                    :body body))))
+            ((member path '("feed" "feed/" "journal/feed" "journal/feed/")
+                     :test #'string=)
+             (let* ((authors
+                     (query "SELECT DISTINCT name
+                               FROM users
+                               JOIN article_revisions
+                                 ON author = users.id"
+                            :plist))
+                    (last-updated
+                     (query "SELECT max(date)
+                               FROM article_revisions
+                              WHERE status = 'syndicated'"
+                            :single))
+                    (template-params
+                     (list :title *site-name*
+                           :last-updated-date last-updated
+                           :base-uri *base-uri*
+                           :subtitle ""
+                           :global-id *feed-global-id*
+                           :authors authors
+                           :feed-uri (link-to :view-atom-feed)
+                           :articles revisions)))
+               (expand-template (template "article_feed")
+                                template-params)))))))))
 
 (defun paramify-article (revision-data &optional commentary-p comments)
   (let* ()

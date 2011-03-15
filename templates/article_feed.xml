@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="html">{title}</title>
+  <updated>{last-updated-date|html-iso-date}</updated>
+  <id>{global-id}</id>
+  <subtitle>
+    {subtitle}
+  </subtitle>
+  <author>
+    {.repeated section authors}
+    <name>{name}</name>
+    {.end}
+  </author>
+  <link rel="alternate" type="text/html" href="{base-uri|html-attr-value}"/>
+  <link rel="self" type="application/atom+xml" href="{feed-uri|html-attr-value}"/>
+  {.repeated section articles}
+  <entry>
+    <title type="html">
+      {title}
+    </title>
+    <id>{global-id}</id>
+    <updated>{last-updated-date|html-iso-date}</updated>
+    <published>{publishing-date|html-iso-date}</published>
+    <link rel="alternate" type="text/html" href="{link|html-attr-value}"/>
+    {.section body}
+    <content type="xhtml" xml:lang="de" xml:base="{base-uri|html-attr-value}">
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        {@}
+      </div>
+    </content>
+    {.end}
+  </entry>
+  {.end}
+</feed>
