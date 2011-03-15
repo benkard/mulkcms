@@ -172,6 +172,14 @@ CREATE TABLE used_transaction_keys(
 );
 CREATE SEQUENCE transaction_key_seq;
 
+CREATE TABLE cached_pages(
+  alias               VARCHAR   NOT NULL,
+  characteristic_hash INTEGER   NOT NULL,
+  date                TIMESTAMP NOT NULL DEFAULT now(),
+  content             VARCHAR   NOT NULL,
+  PRIMARY KEY(alias, characteristic_hash)
+);
+
 ----
 
 CREATE TYPE characteristic AS (
