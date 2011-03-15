@@ -13,28 +13,32 @@ jQuery(function($) {
   var form_augmented_p = false;
   $('.comment-form').submit(function() {
     var form = $(this);
-    $.ajax({
-      url: "/RPC/generate-transaction-key",
-      dataType: 'json',
-      success: function(tkey) {
-        if (!form_augmented_p) {
+    if (!form_augmented_p) {
+      $.ajax({
+        url: "/RPC/generate-transaction-key",
+        dataType: 'json',
+        success: function(tkey) {
           form.find(':submit').attr("disabled", true);
           var salt = 0;
-          var text = form.find('textarea');
+          var text = form.find('textarea').val().replace(/\s+/g, "");
           while (!acceptable_cashhash(Sha256.hash(text + ":" + tkey + ":" + salt))) {
             salt++;
           }
           form.prepend('<input type="hidden" name="transaction-key" value="' + tkey + '" />');
           form.prepend('<input type="hidden" name="salt"            value="' + salt + '" />');
           form_augmented_p = true;
+          form.find(':submit').removeAttr("disabled");
+          $('.comment-form').submit();
           form.submit();
-          return false;
-        } else {
-          return true;
+          console.log("tkey = " + tkey);
+          console.log("salt = " + salt);
+          console.log("Submitted!");
         }
-      }
-    });
-    return false;
+      });
+      return false;
+    } else {
+      return true;
+    }
   });
   $('.spam-detection-method').text("Hashcash");
   $('.irrelevant-for-hashcash').text('');

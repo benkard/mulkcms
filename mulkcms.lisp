@@ -30,7 +30,8 @@
 
 
 (defun hashcash-hash-validp (text)
-  (let ((digest (ironclad:digest-sequence 'ironclad:sha256 (flexi-streams:string-to-octets text))))
+  (let* ((stripped-text (ppcre:regex-replace-all "\\s+" text ""))
+         (digest (ironclad:digest-sequence 'ironclad:sha256 (flexi-streams:string-to-octets stripped-text :external-format :utf8))))
     (every #'zerop (subseq digest 0 2))))
 
 
