@@ -717,32 +717,39 @@
                               :none)
                        (setq submission-notice
                              (cond
-                               (spam-p "<p><strong>Warning:</strong></p>
+                               (spam-p
+                                (list
+                                 :content "<p><strong>Warning:</strong></p>
 
-                                        <p>Your message could not be
-                                        verified as non-spam.  If
-                                        JavaScript is enabled in your
-                                        browser, it may be broken in
-                                        some way.  In this case, please
-                                        disable JavaScript support and
-                                        try again.  Otherwise, feel free
-                                        to contact one of the site
-                                        administrators, who will be able
-                                        to manually approve your
-                                        comment.</p>")
-                               (t "<p><strong>Note:</strong></p>
+                                           <p>Your message could not be
+                                           verified as non-spam.  If
+                                           JavaScript is enabled in your
+                                           browser, it may be broken in
+                                           some way.  In this case,
+                                           please disable JavaScript
+                                           support and try again.
+                                           Otherwise, feel free to
+                                           contact one of the site
+                                           administrators, who will be
+                                           able to manually approve your
+                                           comment.</p>"
+                                 :message-type "warning"))
+                               (t
+                                (list
+                                 :content "<p><strong>Note:</strong></p>
 
-                                   <p>Your message has been received and
-                                   classified as non-spam.  It has thus
-                                   been put into the moderation queue and
-                                   is now awaiting approval by one of the
-                                   site's administrators.</p>")))))))
+                                           <p>Your message has been received and
+                                           classified as non-spam.  It has thus
+                                           been put into the moderation queue and
+                                           is now awaiting approval by one of the
+                                           site's administrators.</p>"
+                                 :message-type "success-message"))))))))
                (expand-page page-template
                             (getf article-params :title)
                             (list* :articles (list article-params)
-                                   :warnings (if submission-notice
-                                                 (list submission-notice)
-                                                 nil)
+                                   :info-messages (if submission-notice
+                                                      (list submission-notice)
+                                                      nil)
                                    template-params))))))))))
 
 

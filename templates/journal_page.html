@@ -13,11 +13,11 @@
   <h1 id="main-title">{site-name|html}</h1>
   <div id="main-subtitle">{site-subtitle|html}</div>
 
-  {.section warnings}
-  <div id="warnings">
+  {.section info-messages}
+  <div id="info-messages">
     {.repeated section @}
-    <div class="journal-warning">
-      {@}
+    <div class="journal-{message-type}">
+      {content}
     </div>
     {.end}
   </div>
