@@ -78,7 +78,7 @@
   nil)
 
 
-(defun call-with-cache (path last-update thunk)
+(defun call-with-cache (path last-update content-type thunk)
   (let* ((chars       (requested-characteristics))
          (charstring  (prin1-to-string chars))
          (charbytes   (flexi-streams:string-to-octets
@@ -97,6 +97,8 @@
                               charhashnum
                               path
                               :row)))
+    (when content-type
+      (setf (hunchentoot:content-type*) content-type))
     (if (and cached-data (simple-date:time< last-update (second cached-data)))
         (first cached-data)
         (let ((generated-content (funcall thunk)))
@@ -109,8 +111,9 @@
           generated-content))))
 
 
-(defmacro with-cache ((path last-update) &body body)
-  `(call-with-cache ,path ,last-update (lambda () ,@body)))
+(defmacro with-cache ((path last-update &optional content-type) &body body)
+  `(call-with-cache ,path ,last-update ,content-type
+                    (lambda () ,@body)))
 
 
 (defun find-canonical-article-alias (article)
@@ -435,7 +438,13 @@
                 :test #'string=)
     (lambda ()
       (with-db
-        (with-cache (path (query "SELECT max(date) FROM article_revisions" :single))
+        (with-cache (path
+                     (query "SELECT max(date) FROM article_revisions" :single)
+                     (if (member path '("feed" "feed/"
+                                        "journal/feed" "journal/feed")
+                                 :test #'string=)
+                         "application/atom+xml; charset=utf-8"
+                         "text/html; charset=utf-8"))
           (let* (#+portable-mulkcms
                  (articles (find-journal-articles))
                  #+portable-mulkcms
