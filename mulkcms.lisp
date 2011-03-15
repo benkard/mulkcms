@@ -204,7 +204,9 @@
           :article-id article
           :global-id global-id
           :status status
-          :link (link-to :view :article-id article)
+          :link (link-to :view
+                         :article-id article
+                         :absolute t)
           :commentary (if commentary-p (list :comments comments) nil)
           :comment-submission (when commentary-p
                                 (list :fields (list (list :field-id "name"
@@ -236,16 +238,22 @@
                                                 Akismet) other than the
                                                 site owner."
                                                ""))
-                                      :action (link-to :post-comment :article-id article)))
+                                      :action (link-to :post-comment
+                                                       :article-id article
+                                                       :absolute t)))
           :edit-link (link-to :edit :article-id article)
           :edit-button-label "Edit"
-          :comment-feed (link-to :view-comment-feed :article-id article)
+          :comment-feed (link-to :view-comment-feed
+                                 :article-id article
+                                 :absolute t)
           :comment-feed-label "Comment feed"
           :comments-label (case comment-num
                             (0 "no comments")
                             (1 "1 comment")
                             (otherwise (format nil "~D comments" comment-num)))
-          :comments-link (link-to :view-comments :article-id article)
+          :comments-link (link-to :view-comments
+                                  :article-id article
+                                  :absolute t)
           :comments-heading "Comments")))
 
 (defun format-comment-content (text)
@@ -400,7 +408,10 @@
               :author-link (if (and author-website (not (equal author-website "")))
                                author-website
                                nil)
-              :link (link-to :view :article-id article :comment-id comment)
+              :link (link-to :view
+                             :article-id article
+                             :comment-id comment
+                             :absolute t)
               :edit-link ""
               :edit-button-label "Edit"
               :generic-commenter-name "Someone")))))
@@ -480,7 +491,7 @@
                                FROM users
                                JOIN article_revisions
                                  ON author = users.id"
-                              :plist))
+                              :plists))
                       (last-updated
                        (query "SELECT max(date)
                                FROM article_revisions
@@ -493,7 +504,7 @@
                              :subtitle ""
                              :global-id *feed-global-id*
                              :authors authors
-                             :feed-uri (link-to :view-atom-feed)
+                             :feed-uri (link-to :view-atom-feed :absolute t)
                              :articles revisions)))
                  (expand-template (template "article_feed")
                                   template-params))))))))))
@@ -639,7 +650,10 @@
                        (list :id id
                              :title title
                              :date date
-                             :link (link-to :edit :article-id article-id :revision-id id)
+                             :link (link-to :edit
+                                            :article-id article-id
+                                            :revision-id id
+                                            :absolute t)
                              :characteristics (parse-array characteristics))))
                    (paramify-article-row (row)
                      (destructuring-bind (id revisions aliases)
@@ -774,7 +788,9 @@
                                       :root *base-uri*
                                       :site-name *site-name*
                                       :site-subtitle ""
-                                      :link (link-to :edit :article-id article)
+                                      :link (link-to :edit
+                                                     :article-id article
+                                                     :absolute t)
                                       :save-button-label "Save"
                                       :publish-flag-label "Publish"
                                       :title-label "Title"
