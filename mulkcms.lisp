@@ -127,7 +127,6 @@
   (symbol-macrolet ((article-base (find-canonical-article-alias article-id)))
     (multiple-value-call
         #'(lambda (&rest args)
-            (print args)
             (let ((path (apply #'format nil args)))
               (if absolute
                   (with-output-to-string (strout)
