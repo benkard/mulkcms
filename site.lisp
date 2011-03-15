@@ -9,6 +9,12 @@
 (defparameter *database-user* "mulkcms")
 (defparameter *database-password* "")
 
+;; Set the following to your feed ID.  This may, for example, be
+;; something like "urn:uuid:00000000-0000-0000-0000-000000000000" where
+;; the dummy zero UUID has been replaced with a unique UUID for your
+;; specific website.
+(defparameter *feed-global-id* "")
+
 (defparameter *static-files* "/var/mulkcms/static-files/")
 (defparameter *templates* "/var/mulkcms/templates/")
 
