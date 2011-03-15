@@ -63,9 +63,12 @@
                  ("comment_content" . ,body))))
 
 
+(defun use-akismet-p ()
+  (and (boundp '*wordpress-key*) *wordpress-key* t))
+
 (defun spamp/akismet (&rest comment-data)
   ;; Taken from Mulkblog.
-  (when (and (boundp '*wordpress-key*) *wordpress-key*)
+  (when (use-akismet-p)
     (ignore-errors
       (akismet-login)
       (string= "true" (apply #'akismet-check-comment comment-data)))))
@@ -174,19 +177,26 @@
                                       :body-label "Message"
                                       :submit-button-label "Submit"
                                       :title "Submit a comment"
-                                      :notes "<p><strong>Note:</strong>
-                                              This website uses <span
-                                              class='spam-detection-method'><a
-                                              href=\"http://akismet.com/\">Akismet</a></span>
-                                              for spam detection.
-                                              E-mail addresses are never
-                                              disclosed to anyone <span
-                                              class='irrelevant-for-hashcash'>(including
-                                              Akismet)</span> other than
-                                              the site owner.  Comment
-                                              format is plain text.  Use
-                                              blank lines to separate
-                                              paragraphs.</p>"
+                                      :notes (format
+                                              nil
+                                              "<p><strong>Note:</strong>
+                                              <span
+                                              class='spam-detection-info'>~A</span>
+                                              Comment format is plain
+                                              text.  Use blank lines to
+                                              separate paragraphs.</p>"
+                                              (if
+                                               (use-akismet-p)
+                                               "This website uses <span
+                                                class='spam-detection-method'><a
+                                                href=\"http://akismet.com/\">Akismet</a></span>
+                                                for spam detection.
+                                                E-mail addresses are
+                                                never disclosed to
+                                                anyone (including
+                                                Akismet) other than the
+                                                site owner."
+                                               ""))
                                       :action (link-to :post-comment :article-id article)))
           :edit-link (link-to :edit :article-id article)
           :edit-button-label "Edit"

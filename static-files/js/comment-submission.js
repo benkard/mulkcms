@@ -52,6 +52,5 @@ jQuery(function($) {
       return true;
     }
   });
-  $('.spam-detection-method').text("Hashcash");
-  $('.irrelevant-for-hashcash').text('');
+  $('.spam-detection-info').html("This website uses a <a href=\"http://en.wikipedia.org/w/index.php?title=Hashcash&oldid=417692755\">Hashcash</a>-like proof-of-work system for spam detection.");
 });
