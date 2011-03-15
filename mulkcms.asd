@@ -9,7 +9,8 @@
   :serial t
   :version "0.0.1"
   :depends-on (:cl-who :cl-json :alexandria :postmodern :split-sequence
-               :cl-ppcre :cl-fad :cxml :closure-html :json-template :cxml-stp)
+               :cl-ppcre :cl-fad :cxml :closure-html :json-template :cxml-stp
+               :ironclad :flexi-streams)
   :components ((:file "package")
                (:file "site")
                (:file "mulkcms")

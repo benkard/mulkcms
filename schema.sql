@@ -166,6 +166,11 @@ CREATE TABLE user_settings(
   FOREIGN KEY ("user") REFERENCES users
 );
 
+CREATE TABLE used_transaction_keys(
+  key BIGINT
+  PRIMARY KEY (key);
+);
+CREATE SEQUENCE transaction_key_seq;
 
 ----
 

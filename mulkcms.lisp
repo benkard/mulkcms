@@ -29,6 +29,11 @@
           (random #x1000000000000)))
 
 
+(defun hashcash-hash-validp (text)
+  (let ((digest (ironclad:digest-sequence 'ironclad:sha256 (flexi-streams:string-to-octets text))))
+    (every #'zerop (subseq digest 0 2))))
+
+
 (defun find-canonical-article-alias (article)
   (query "SELECT alias FROM article_aliases WHERE article = $1 LIMIT 1"
          article
@@ -133,16 +138,18 @@
                                       :submit-button-label "Submit"
                                       :title "Submit a comment"
                                       :notes "<p><strong>Note:</strong>
-                                              This website uses <a
-                                              href=\"http://akismet.com/\">Akismet</a>
+                                              This website uses <span
+                                              class='spam-detection-method'><a
+                                              href=\"http://akismet.com/\">Akismet</a></span>
                                               for spam detection.
                                               E-mail addresses are never
-                                              disclosed to
-                                              anyone (including Akismet)
-                                              other than the site owner.
-                                              Comment format is plain
-                                              text.  Use blank lines to
-                                              separate paragraphs.</p>"
+                                              disclosed to anyone <span
+                                              class='irrelevant-for-hashcash'>(including
+                                              Akismet)</span> other than
+                                              the site owner.  Comment
+                                              format is plain text.  Use
+                                              blank lines to separate
+                                              paragraphs.</p>"
                                       :action (link-to :post-comment :article-id article)))
           :edit-link (link-to :edit :article-id article)
           :edit-button-label "Edit"
@@ -665,12 +672,18 @@
                                            :link ""))
                     (submission-notice nil))
                (when (assoc "post-comment" params :test #'equal)
-                 (let ((name     (cdr (assoc "name"     params :test #'equal)))
-                       (website  (cdr (assoc "website"  params :test #'equal)))
-                       (email    (cdr (assoc "email"    params :test #'equal)))
-                       (body     (cdr (assoc "body"     params :test #'equal)))
-                       (article  (cdr (assoc "article"  params :test #'equal)))
-                       (revision (cdr (assoc "revision" params :test #'equal))))
+                 (let* ((name     (cdr (assoc "name"            params :test #'equal)))
+                        (website  (cdr (assoc "website"         params :test #'equal)))
+                        (email    (cdr (assoc "email"           params :test #'equal)))
+                        (body     (cdr (assoc "body"            params :test #'equal)))
+                        (article  (cdr (assoc "article"         params :test #'equal)))
+                        (revision (cdr (assoc "revision"        params :test #'equal)))
+                        (tkey     (cdr (assoc "transaction-key" params :test #'equal)))
+                        (salt     (cdr (assoc "salt"            params :test #'equal)))
+                        (spam-p   (or (null tkey)
+                                      (null salt)
+                                      (not (hashcash-hash-validp
+                                            (format nil "~A:~A:~A" body tkey salt))))))
                    (with-transaction ()
                      (let ((comment (query "INSERT INTO comments(article, global_id)
                                               VALUES ($1, $2)
@@ -685,22 +698,44 @@
                                            email
                                            website
                                            :single!)))
+                       (when tkey
+                         (query "INSERT INTO used_transaction_keys(key) VALUES ($1)"
+                                tkey
+                                :none))
                        (query "INSERT INTO comment_revisions(comment, content, author, format, status, article_revision, submitter_ip, submitter_user_agent)
-                                 VALUES ($1, $2, $3, 'text', 'pending', $4, $5, $6)"
+                                 VALUES ($1, $2, $3, 'text', $4, $5, $6, $7)"
                               comment
                               body
                               author
+                              (if spam-p
+                                  "pending"
+                                  "spam")
                               revision
                               (hunchentoot:real-remote-addr)
                               (hunchentoot:user-agent)
                               :none)
                        (setq submission-notice
-                             "<p><strong>Note:</strong></p>
+                             (cond
+                               (spam-p "<p><strong>Warning:</strong></p>
 
-                              <p>Your message has been received and put
-                              into the moderation queue.  It is now
-                              waiting for approval by one of the site's
-                              administrators.</p>")))))
+                                        <p>Your message could not be
+                                        verified as non-spam.  If
+                                        JavaScript is enabled in your
+                                        browser, it may be broken in
+                                        some way.  In this case, please
+                                        disable JavaScript support and
+                                        try again.  Otherwise, feel free
+                                        to contact one of the site
+                                        administrators, who will be able
+                                        to manually approve your
+                                        comment.</p>")
+                               (t "<p><strong>Note:</strong></p>
+
+                                   <p>Your message has been received and
+                                   classified as non-spam.  It has thus
+                                   been put into the moderation queue and
+                                   is now awaiting approval by one of the
+                                   site's administrators.</p>")))))))
                (expand-page page-template
                             (getf article-params :title)
                             (list* :articles (list article-params)
@@ -709,6 +744,14 @@
                                                  nil)
                                    template-params))))))))))
 
+
+
+(defun find-transaction-key-handler (path)
+  (when (string= path "RPC/generate-transaction-key")
+    (lambda ()
+      (with-db
+        (setf (hunchentoot:content-type*) "text/plain; charset=utf-8")
+        (format nil "~D" (query "SELECT nextval('transaction_key_seq')" :single!))))))
 
 
 (defun keywordify (thing)
@@ -730,4 +773,5 @@
        (cond ((assoc "edit"         params :test #'equal) :edit)
              ((assoc "comment-feed" params :test #'equal) :view-comment-feed)
              ((assoc "atom"         params :test #'equal) :view-atom-entry)
-             (t                                           :view)))))
+             (t                                           :view)))
+      (find-transaction-key-handler path)))
