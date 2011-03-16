@@ -676,7 +676,9 @@
                                                     (mapcar #'parse-row
                                                             (parse-array revisions)))))
                          (list :id id
-                               :aliases aliases
+                               :aliases (if (eq aliases :null)
+                                            nil
+                                            aliases)
                                :revisions revision-data
                                :revision-num (length revision-data))))))
             (when (assoc "add-alias" params :test #'equal)
