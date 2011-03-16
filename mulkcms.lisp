@@ -102,6 +102,12 @@
     (if (and cached-data (simple-date:time< last-update (second cached-data)))
         (first cached-data)
         (let ((generated-content (funcall thunk)))
+          (query "DELETE FROM cached_pages
+                   WHERE characteristic_hash = $1
+                     AND alias = $2"
+                 charhashnum
+                 path
+                 :none)
           (query "INSERT INTO cached_pages(characteristic_hash, alias, content)
                     VALUES ($1, $2, $3)"
                  charhashnum
