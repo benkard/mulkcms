@@ -1040,7 +1040,9 @@
                          langs)))
              *default-characteristics-precedence-list*))
         (*propagated-params* (remove-if-not (lambda (x)
-                                              (equal (car x) "lang"))
+                                              (member (car x)
+                                                      (list "lang" "hl")
+                                                      :test #'equal))
                                             params)))
     (or (find-article-summary-handler
          path
