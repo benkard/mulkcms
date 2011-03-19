@@ -31,4 +31,5 @@
               '((("language" . "en"))
                 (("language" . "la"))
                 (("language" . "de") ("s" . "long"))
+                (("language" . "de"))
                 (("language" . "fr"))))

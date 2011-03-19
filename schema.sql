@@ -191,61 +191,39 @@ CREATE TYPE characteristic_list AS (
   characteristics characteristic[]
 );
 
-CREATE FUNCTION article_revisions_for_characteristics_with_fixed_ones(
+
+CREATE OR REPLACE FUNCTION article_revisions_for_characteristics(
   article INTEGER,
-  characteristic_lists characteristic_list[],
-  fixed_characteristics characteristic_list
-) RETURNS INTEGER[] AS $BODY$
+  characteristic_lists characteristic_list[]
+) RETURNS SETOF INTEGER AS $BODY$
 DECLARE
-  query              VARCHAR        := $$SELECT id FROM article_revisions
-                                          WHERE article = $$
-                                       || quote_literal(article) ||
-                                       $$   AND status IN ('published', 'syndicated')$$;
-  fchar              RECORD;
-  revisions          INTEGER[];
-  specific_revisions INTEGER[];
-  dummy              INTEGER;
+  query              VARCHAR;
+  required_chars     RECORD;
+  charac             RECORD;
 BEGIN
-  FOR fchar IN SELECT unnest(fixed_characteristics.characteristics) AS val LOOP
-    query := query || $$AND EXISTS
-                          (SELECT 1
-                             FROM article_revision_characteristics
-                            WHERE revision = article_revisions.id
-                              AND characteristic = $$ || quote_literal((fchar.val::characteristic).characteristic) || $$
-                              AND value = $$ || quote_literal((fchar.val::characteristic).value) || $$)$$;
-  END LOOP;
-  query := query || $$ORDER BY date DESC$$;
-  EXECUTE ('SELECT array(' || query || ')') INTO revisions;
-  IF array_length(revisions, 1) > 0 THEN
-    IF array_length(characteristic_lists, 1) > 0 THEN
-      FOR fchar IN SELECT unnest((characteristic_lists[1]).characteristics) AS val LOOP
-        specific_revisions := article_revisions_for_characteristics_with_fixed_ones(
-          article,
-          characteristic_lists[2:array_upper(characteristic_lists, 1)],
-          ROW(array_prepend(fchar.val, fixed_characteristics.characteristics))::characteristic_list
-        );
-        IF array_length(specific_revisions, 1) > 0 THEN
-          RETURN specific_revisions;
-        END IF;
-      END LOOP;
-      RETURN revisions;
-    ELSE
-      RETURN revisions;
+  FOR required_chars IN SELECT unnest(characteristic_lists) AS val LOOP
+    query := $$SELECT id FROM article_revisions
+                WHERE article = $$
+             || quote_literal(article) ||
+             $$   AND status IN ('published', 'syndicated')$$;
+    FOR charac IN SELECT unnest((required_chars.val::characteristic_list).characteristics) AS val LOOP
+      query := query || $$ AND EXISTS
+                            (SELECT 1
+                               FROM article_revision_characteristics
+                              WHERE revision = article_revisions.id
+                                AND characteristic = $$ || quote_literal((charac.val::characteristic).characteristic) || $$
+                                AND value = $$ || quote_literal((charac.val::characteristic).value) || $$)$$;
+    END LOOP;
+    query := query || $$ ORDER BY DATE DESC$$;
+    FOUND := false;
+    RETURN QUERY EXECUTE query;
+    IF FOUND THEN
+      RETURN;
     END IF;
-  ELSE
-    RETURN ARRAY[]::INTEGER[];
-  END IF;
+  END LOOP;
 END
 $BODY$ LANGUAGE plpgsql STABLE;
 
-CREATE FUNCTION article_revisions_for_characteristics(
-  article INTEGER,
-  characteristic_lists characteristic_list[]
-) RETURNS SETOF INTEGER AS $$
-BEGIN
-  RETURN QUERY SELECT unnest(article_revisions_for_characteristics_with_fixed_ones(article, characteristic_lists, ROW(ARRAY[]::characteristic[])::characteristic_list));
-END
-$$ LANGUAGE plpgsql STABLE;
 
 -- Usage example:
 --   SELECT article_revisions_for_characteristics(70, ARRAY[ROW(ARRAY[ROW('language', 'de')::characteristic])]::characteristic_list[]);
