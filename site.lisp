@@ -28,7 +28,7 @@
 (defparameter *wordpress-key* nil)
 
 (defparameter *default-characteristics-precedence-list*
-              '((("language" "en"))
-                (("language" "la"))
-                (("language" "de") ("s" "long"))
-                (("language" "fr"))))
+              '((("language" . "en"))
+                (("language" . "la"))
+                (("language" . "de") ("s" . "long"))
+                (("language" . "fr"))))

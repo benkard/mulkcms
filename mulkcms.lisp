@@ -4,6 +4,8 @@
   (list *database-name* *database-user* *database-password* *database-host*
         :pooled-p t :use-ssl :try))
 
+(defvar *requested-characteristics*)
+
 (unless (member "html-human-date" *template-formatters* :key #'car :test #'equal)
   (setq *template-formatters*
         (list* (cons "html-human-date" 'format-human-date)
@@ -74,12 +76,8 @@
       (string= "true" (apply #'akismet-check-comment comment-data)))))
 
 
-(defun requested-characteristics ()
-  nil)
-
-
-(defun call-with-cache (path last-update content-type thunk)
-  (let* ((chars       (requested-characteristics))
+(defun call-with-cache (path last-update content-type characteristics thunk)
+  (let* ((chars       characteristics)
          (charstring  (prin1-to-string chars))
          (charbytes   (flexi-streams:string-to-octets
                        charstring
@@ -117,8 +115,9 @@
           generated-content))))
 
 
-(defmacro with-cache ((path last-update &optional content-type) &body body)
-  `(call-with-cache ,path ,last-update ,content-type
+(defmacro with-cache ((path last-update &optional content-type characteristics)
+                      &body body)
+  `(call-with-cache ,path ,last-update ,content-type ,characteristics
                     (lambda () ,@body)))
 
 
@@ -300,6 +299,7 @@
         (format out "ROW(~A, ~A)::characteristic"
                 (sql-escape (car ch))
                 (sql-escape (cdr ch))))
+      (setq first2-p t)
       (format out "])"))
     (format out "]::characteristic_list[])")))
 
@@ -444,7 +444,11 @@
     ORDER BY min(date) DESC"
   :column)
 
-(defun find-journal-archive-request-handler (path full-p &optional action characteristics)
+(defun find-journal-archive-request-handler (path full-p
+                                             &optional
+                                             action
+                                             (characteristics
+                                              *requested-characteristics*))
   (declare (ignore action))
   (when (member path '("journal" "journal/"
                        "feed" "feed/"
@@ -457,8 +461,9 @@
                      (if (member path '("feed" "feed/"
                                         "journal/feed" "journal/feed")
                                  :test #'string=)
-                         "application/atom+xml; charset=utf-8"
-                         "text/html; charset=utf-8"))
+                         "application/atom+xml; charset=UTF-8"
+                         "text/html; charset=UTF-8")
+                     characteristics)
           (let* (#+portable-mulkcms
                  (articles (find-journal-articles))
                  #+portable-mulkcms
@@ -661,7 +666,11 @@
                (char= (char string (1- (length string))) #\})))
   (parse-row-or-array string))
 
-(defun find-article-summary-handler (path params &optional action characteristics)
+(defun find-article-summary-handler (path params
+                                     &optional
+                                     action
+                                     (characteristics
+                                      *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/articles")
     (lambda ()
@@ -757,7 +766,11 @@
     (values char
             value)))
 
-(defun find-article-request-handler (path params &optional action characteristics)
+(defun find-article-request-handler (path params
+                                     &optional
+                                     action
+                                     (characteristics
+                                      *requested-characteristics*))
   (with-db
     (when-let ((article (query "SELECT article FROM article_aliases
                                  WHERE alias = $1"
@@ -866,11 +879,14 @@
         (:view
          (lambda ()
            (with-db
-             (with-cache (path (query "SELECT max(date)
-                                         FROM article_revisions
-                                        WHERE article = $1"
-                                      article
-                                      :single))
+             (with-cache (path
+                          (query "SELECT max(date)
+                                    FROM article_revisions
+                                   WHERE article = $1"
+                                 article
+                                 :single)
+                          "text/html; charset=UTF-8"
+                          characteristics)
                (let* ((page-template-name (query "SELECT page_template FROM articles
                                                   JOIN article_types
                                                     ON articles.type = article_types.id
@@ -984,19 +1000,26 @@
 
 
 (defun find-request-handler (path params)
-  (or (find-article-summary-handler
-       path
-       params)
-      (find-journal-archive-request-handler
-       path
-       (assoc "full" params :test #'equal)
-       (cond ((assoc "feed" params :test #'equal) :view-feed)
-             (t                                   :view)))
-      (find-article-request-handler
-       path
-       params
-       (cond ((assoc "edit"         params :test #'equal) :edit)
-             ((assoc "comment-feed" params :test #'equal) :view-comment-feed)
-             ((assoc "atom"         params :test #'equal) :view-atom-entry)
-             (t                                           :view)))
-      (find-transaction-key-handler path)))
+  (let ((*requested-characteristics*
+         (append (when-let (langstr (or (cdr (assoc "lang" params :test #'equal))
+                                        (cdr (assoc "hl"   params :test #'equal))))
+                   (let ((langs (split-sequence #\| langstr)))
+                     (mapcar (lambda (x) (list (cons "language" x)))
+                             langs)))
+                 *default-characteristics-precedence-list*)))
+    (or (find-article-summary-handler
+         path
+         params)
+        (find-journal-archive-request-handler
+         path
+         (assoc "full" params :test #'equal)
+         (cond ((assoc "feed" params :test #'equal) :view-feed)
+               (t                                   :view)))
+        (find-article-request-handler
+         path
+         params
+         (cond ((assoc "edit"         params :test #'equal) :edit)
+               ((assoc "comment-feed" params :test #'equal) :view-comment-feed)
+               ((assoc "atom"         params :test #'equal) :view-atom-entry)
+               (t                                           :view)))
+        (find-transaction-key-handler path))))
