@@ -5,6 +5,7 @@
         :pooled-p t :use-ssl :try))
 
 (defvar *requested-characteristics*)
+(defvar *propagated-params*)
 
 (unless (member "html-human-date" *template-formatters* :key #'car :test #'equal)
   (setq *template-formatters*
@@ -29,6 +30,14 @@
                           (random #x100)))    ;clock_seq_hi_and_reserved
           (random #x100)                      ;clock_seq_low
           (random #x1000000000000)))
+
+
+(defmacro dynamic-lambda ((&rest dynvars) lambda-list &body body)
+  (let ((lexvars (mapcar (lambda (x) (declare (ignore x)) (gensym)) dynvars)))
+    `(let ,(mapcar #'list lexvars dynvars)
+       (lambda ,lambda-list
+         (let ,(mapcar #'list dynvars lexvars)
+           ,@body)))))
 
 
 (defun hashcash-hash-validp (text)
@@ -131,6 +140,27 @@
          :single))
 
 
+(defun queryize-alist (alist)
+  (format nil "~{~A~^&~}"
+          (mapcar (lambda (x)
+                    (destructuring-bind (name . value)
+                        x
+                      (format nil
+                              "~A=~A"
+                              (json-template::escape-for-uri name)
+                              (json-template::escape-for-uri value))))
+                  alist)))
+
+(defun uri-with-query (string alist)
+  (if alist
+      (format nil "~A~A~A"
+              string
+              (if (position #\? string)
+                  #\&
+                  #\?)
+              (queryize-alist alist))
+      string))
+
 (defun link-to (action &key comment-id article-id revision-id (absolute nil))
   ;; Taken from Mulkblog.
   (symbol-macrolet ((article-base (find-canonical-article-alias article-id)))
@@ -138,9 +168,11 @@
         #'(lambda (&rest args)
             (let ((path (apply #'format nil args)))
               (if absolute
-                  (with-output-to-string (strout)
-                    (puri:render-uri (puri:merge-uris path *base-uri*)
-                                     strout))
+                  (uri-with-query
+                   (with-output-to-string (strout)
+                     (puri:render-uri (puri:merge-uris path *base-uri*)
+                                      strout))
+                   *propagated-params*)
                   path)))
       (ecase action
         (:index "")
@@ -454,7 +486,7 @@
                        "feed" "feed/"
                        "journal/feed" "journal/feed")
                 :test #'string=)
-    (lambda ()
+    (dynamic-lambda (*propagated-params*) ()
       (with-db
         (with-cache (path
                      (query "SELECT max(date) FROM article_revisions" :single)
@@ -673,7 +705,7 @@
                                       *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/articles")
-    (lambda ()
+    (dynamic-lambda (*propagated-params*) ()
       (with-authorization (user-id :require :admin)
         (with-db
           (labels ((paramify-revision-row (row article-id)
@@ -778,7 +810,7 @@
                                :single)))
       (ecase action
         (:edit
-         (lambda ()
+         (dynamic-lambda (*propagated-params*) ()
            (with-authorization (user-id :require :admin)
              (with-db
                (with-transaction ()
@@ -877,7 +909,7 @@
                                       :content-label "Content"
                                       :characteristics-label "Characteristics"))))))))
         (:view
-         (lambda ()
+         (dynamic-lambda (*propagated-params*) ()
            (with-db
              (with-cache (path
                           (query "SELECT max(date)
@@ -989,7 +1021,7 @@
 
 (defun find-transaction-key-handler (path)
   (when (string= path "RPC/generate-transaction-key")
-    (lambda ()
+    (dynamic-lambda (*propagated-params*) ()
       (with-db
         (setf (hunchentoot:content-type*) "text/plain; charset=utf-8")
         (format nil "~D" (query "SELECT nextval('transaction_key_seq')" :single!))))))
@@ -1006,7 +1038,10 @@
                    (let ((langs (split-sequence #\| langstr)))
                      (mapcar (lambda (x) (list (cons "language" x)))
                              langs)))
-                 *default-characteristics-precedence-list*)))
+                 *default-characteristics-precedence-list*))
+        (*propagated-params* (remove-if-not (lambda (x)
+                                              (equal (car x) "lang"))
+                                            params)))
     (or (find-article-summary-handler
          path
          params)
