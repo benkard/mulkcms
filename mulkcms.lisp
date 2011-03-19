@@ -1033,12 +1033,12 @@
 
 (defun find-request-handler (path params)
   (let ((*requested-characteristics*
-         (append (when-let (langstr (or (cdr (assoc "lang" params :test #'equal))
-                                        (cdr (assoc "hl"   params :test #'equal))))
-                   (let ((langs (split-sequence #\| langstr)))
-                     (mapcar (lambda (x) (list (cons "language" x)))
-                             langs)))
-                 *default-characteristics-precedence-list*))
+         (or (when-let (langstr (or (cdr (assoc "lang" params :test #'equal))
+                                    (cdr (assoc "hl"   params :test #'equal))))
+               (let ((langs (split-sequence #\| langstr)))
+                 (mapcar (lambda (x) (list (cons "language" x)))
+                         langs)))
+             *default-characteristics-precedence-list*))
         (*propagated-params* (remove-if-not (lambda (x)
                                               (equal (car x) "lang"))
                                             params)))
