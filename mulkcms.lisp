@@ -511,7 +511,11 @@
                                                        FROM article_aliases
                                                       WHERE article = r.article
                                                         AND alias LIKE 'journal/%')")))
-                 (displayed-revisions (if full-p revisions (subseq revisions 0 5))))
+                 (displayed-revisions (if full-p
+                                          revisions
+                                          (subseq revisions
+                                                  0
+                                                  (min 5 (length revisions))))))
             (cond
               ((member path '("journal" "journal/") :test #'string=)
                (let* ((page-skeleton (template "page_skeleton"))
