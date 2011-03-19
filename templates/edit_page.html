@@ -14,7 +14,6 @@
   <form id="editing-form" method="POST" accept-charset="UTF-8"
         action="{link|html-attr-value}">
     <input name="edit" type="hidden" />
-    <input name="save" type="hidden" />
     <input name="revision" type="hidden" value="{article.revision|html-attr-value}" />
     <table id="editing-form-table">
       <tr>
@@ -29,9 +28,32 @@
         <td></td>
         <td><input type="checkbox" id="publish-p" name="publish-p" value="t" /><label for="publish-p">{publish-flag-label|html-attr-value}</label></td>
       </tr>
-            <tr>
+
+      <tr>
+        <td>{characteristics-label|html}</td>
+        <td>
+          <table>
+            <tbody>
+              {.repeated section characteristics}
+              <tr>
+                <td><input type="submit" name="delete-char:{characteristic|html-attr-value}:{value|html-attr-value}" value="-"></input></td>
+                <td>{characteristic|html}</td>
+                <td>{value|html}</td>
+              </tr>
+              {.end}
+              <tr>
+                <td><input type="submit" name="add-char" value="+"></input></td>
+                <td><input type="text" name="new-char-name"></input></td>
+                <td><input type="text" name="new-char-value"></input></td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+
+      <tr>
         <td></td>
-        <td><input type="submit" value="{save-button-label|html-attr-value}" /></td>
+        <td><input type="submit" value="{save-button-label|html-attr-value}" name="save" /></td>
       </tr>
     </table>
   </form>

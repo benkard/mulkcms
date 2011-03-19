@@ -122,6 +122,10 @@
                     (lambda () ,@body)))
 
 
+(defun invalidate-cache ()
+  (with-db (query "DELETE FROM cached_pages")))
+
+
 (defun find-canonical-article-alias (article)
   (query "SELECT alias FROM article_aliases WHERE article = $1 LIMIT 1"
          article
@@ -470,7 +474,7 @@
                                                        FROM article_aliases
                                                       WHERE article = r.article
                                                         AND alias LIKE 'journal/%')")))
-                 (displayed-revisions (if full-p revisions (subseq revisions 0 10))))
+                 (displayed-revisions (if full-p revisions (subseq revisions 0 5))))
             (cond
               ((member path '("journal" "journal/") :test #'string=)
                (let* ((page-skeleton (template "page_skeleton"))
@@ -746,6 +750,13 @@
                                  :add-alias-label "+"
                                  :articles article-data)))))))))
 
+(defun parse-characteristic-string (char-string)
+  (let* ((delimiter   (position #\: char-string))
+         (char        (subseq char-string 0 delimiter))
+         (value       (subseq char-string (1+ delimiter))))
+    (values char
+            value)))
+
 (defun find-article-request-handler (path params &optional action characteristics)
   (with-db
     (when-let ((article (query "SELECT article FROM article_aliases
@@ -760,7 +771,7 @@
                (with-transaction ()
                  (let* ((revision (if (assoc "save" params :test #'equal)
                                       (query "INSERT INTO article_revisions(article, title, content, author, format, status)
-                                                 VALUES ($1, $2, $3, $4, $5, $6)
+                                                VALUES ($1, $2, $3, $4, $5, $6)
                                               RETURNING *"
                                              article
                                              (cdr (assoc "title" params :test #'equal))
@@ -782,9 +793,37 @@
                                                           :test #'equal)))
                                              article
                                              :row)))
-                        (article-params (paramify-article revision))
+                        (article-params (list* (paramify-article revision)))
                         (editor-template (template "edit_page")))
                    (assert (not (null revision)))
+                   (when-let (del-char-command
+                              (find-if (lambda (x)
+                                         (starts-with-subseq "delete-char:"
+                                                             (car x)))
+                                       params))
+                     (let* ((char-string (subseq (car del-char-command) (length "delete-char:"))))
+                       (multiple-value-bind (name value)
+                           (parse-characteristic-string char-string)
+                         (query "DELETE FROM article_revision_characteristics
+                                  WHERE revision = $1
+                                    AND characteristic = $2
+                                    AND value = $3"
+                                (first revision)
+                                name
+                                value
+                                :none))))
+                   (when (assoc "add-char" params :test #'equal)
+                     (let ((name  (cdr (assoc "new-char-name"  params
+                                              :test #'equal)))
+                           (value (cdr (assoc "new-char-value" params
+                                              :test #'equal))))
+                       (query "INSERT INTO article_revision_characteristics(
+                                 revision, characteristic, value
+                               ) VALUES ($1, $2, $3)"
+                              (first revision)
+                              name
+                              value
+                              :none)))
                    (when (assoc "save" params :test #'equal)
                      (query "INSERT INTO article_revision_parenthood(parent, child)
                                   VALUES ($1, $2)"
@@ -802,9 +841,16 @@
                                                        :test #'equal)))
                             (first revision)
                             :none))
+                   (setq characteristics
+                         (query "SELECT characteristic, value
+                                   FROM article_revision_characteristics
+                                  WHERE revision = $1"
+                                (first revision)
+                                :plists))
                    (expand-page editor-template
                                 (getf article-params :title)
                                 (list :article article-params
+                                      :characteristics characteristics
                                       :title (getf article-params :title)
                                       :root *base-uri*
                                       :site-name *site-name*
@@ -815,7 +861,8 @@
                                       :save-button-label "Save"
                                       :publish-flag-label "Publish"
                                       :title-label "Title"
-                                      :content-label "Content"))))))))
+                                      :content-label "Content"
+                                      :characteristics-label "Characteristics"))))))))
         (:view
          (lambda ()
            (with-db
@@ -922,7 +969,6 @@
                                                         (list submission-notice)
                                                         nil)
                                      template-params)))))))))))
-
 
 
 (defun find-transaction-key-handler (path)

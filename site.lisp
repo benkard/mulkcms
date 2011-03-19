@@ -26,3 +26,9 @@
 ;; Set the following to your Wordpress key if you want to use Akismet.
 ;; Otherwise, set it to NIL or comment the line out.
 (defparameter *wordpress-key* nil)
+
+(defparameter *default-characteristics-precedence-list*
+              '((("language" "en"))
+                (("language" "la"))
+                (("language" "de") ("s" "long"))
+                (("language" "fr"))))
