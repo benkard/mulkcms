@@ -1035,14 +1035,28 @@
   (intern (string-upcase (format nil "~A" thing)) "KEYWORD"))
 
 
-(defun find-request-handler (path params)
+(defun parse-accept-language-header (accept-lang)
+  (let ((*read-eval* nil)
+        languages)
+    (ppcre:do-register-groups (lang quality)
+        ("\\b(\\w+)(?:-\\w+)?(?:;q=([0-9.]+))?\\b" accept-lang)
+      (push (cons lang (if quality
+                           (read-from-string quality)
+                           1.0))
+            languages))
+    (mapcar (lambda (x) (list (cons "language" (car x))))
+            (stable-sort (reverse languages) #'> :key #'cdr))))
+
+
+(defun find-request-handler (path params accept-lang)
   (let ((*requested-characteristics*
          (or (when-let (langstr (or (cdr (assoc "lang" params :test #'equal))
                                     (cdr (assoc "hl"   params :test #'equal))))
                (let ((langs (split-sequence #\| langstr)))
                  (mapcar (lambda (x) (list (cons "language" x)))
                          langs)))
-             *default-characteristics-precedence-list*))
+             (append (parse-accept-language-header accept-lang)
+                     *default-characteristics-precedence-list*)))
         (*propagated-params* (remove-if-not (lambda (x)
                                               (member (car x)
                                                       (list "lang" "hl")
