@@ -104,6 +104,11 @@
                               charhashnum
                               path
                               :row)))
+    (hunchentoot:handle-if-modified-since
+     (simple-date:timestamp-to-universal-time last-update))
+    (setf (hunchentoot:header-out :last-modified)
+          (hunchentoot:rfc-1123-date
+           (simple-date:timestamp-to-universal-time last-update)))
     (when content-type
       (setf (hunchentoot:content-type*) content-type))
     (if (and cached-data (simple-date:time< last-update (second cached-data)))
