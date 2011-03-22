@@ -297,4 +297,52 @@ CREATE VIEW article_branch_tips AS
     JOIN article_revisions USING (id);
 
 
+-- You can customize the following depending on which languages you
+-- support on your web site.
+
+CREATE INDEX article_revisions_german_ts_idx
+    ON article_revisions
+ USING gin((setweight(to_tsvector('german', title), 'A')
+           || setweight(to_tsvector('german', content), 'D')));
+
+CREATE INDEX article_revisions_english_ts_idx
+    ON article_revisions
+ USING gin((setweight(to_tsvector('english', title), 'A')
+           || setweight(to_tsvector('english', content), 'D')));
+
+CREATE INDEX article_revisions_french_ts_idx
+    ON article_revisions
+ USING gin((setweight(to_tsvector('french', title), 'A')
+           || setweight(to_tsvector('french', content), 'D')));
+
+CREATE FUNCTION do_full_text_search(query       tsquery,
+                                    language    regconfig,
+                                    max_results INTEGER)
+RETURNS SETOF record
+AS $$
+  WITH headline_options AS (
+    SELECT 'StartSel=<strong>,StopSel=</strong>,FragmentDelimiter=" ... "'::varchar
+             AS headline_options
+  ), search AS (
+       SELECT revision,
+              ts_rank((  setweight(to_tsvector($2, title),   'A')
+                      || setweight(to_tsvector($2, content), 'D')),
+                      $1,
+                      1)
+                AS rank,
+              title,
+              content
+         FROM article_branch_tips
+         JOIN article_revisions ON revision = id
+        ORDER BY rank DESC
+        LIMIT $3
+  )
+  SELECT rank,
+         revision,
+         ts_headline(content, $1, headline_options),
+         ts_headline(title,   $1, headline_options)
+    FROM search
+   CROSS JOIN headline_options
+$$ LANGUAGE SQL STABLE;
+
 COMMIT;
