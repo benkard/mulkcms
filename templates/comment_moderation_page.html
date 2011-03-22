@@ -1,0 +1,28 @@
+{.section head}
+<link rel="stylesheet" type="text/css"
+      href="{root|html-attr-value}style/journal.css" />
+{.end}
+
+{.section body}
+  <h1 id="main-title">{site-name|html}</h1>
+  <div id="main-subtitle">{title}</div>
+
+  {.repeated section comments}
+  <div class="comment-for-moderation" style="border: 1px solid #444; margin: 10px; padding: 5px;">
+    <form id="editing-form" method="POST" accept-charset="UTF-8">
+      <input type="hidden" name="revision-id" value="{revision-id}" />
+      <div>
+        <input type="submit" name="mark-as-spam" value="{spam-label|html-attr-value}" /> |
+        <input type="submit" name="reject" value="{reject-label|html-attr-value}" /> |
+        <input type="submit" name="approve" value="{approve-label|html-attr-value}" />
+      </div>
+    </form>
+
+    <p>
+      Comment on article
+      <a href="{article.link|html-attr-value}">“{article.title}”</a>:
+    </p>
+    {@|comment-html}
+  </div>
+  {.end}
+{.end}

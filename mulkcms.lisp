@@ -13,6 +13,7 @@
                (cons "html-short-human-date" 'format-short-human-date)
                (cons "html-iso-date"   'format-iso-date)
                (cons "article-html"    'format-article)
+               (cons "comment-html"    'format-comment)
                *template-formatters*)))
 
 
@@ -301,6 +302,10 @@
   (let ((article-template (template "article")))
     (expand-template article-template article-params)))
 
+(defun format-comment (comment-params)
+  (let ((comment-template (template "comment")))
+    (expand-template comment-template comment-params)))
+
 (defun paramify-article-data (revision-data &optional (comments nil commentary-p))
   (destructuring-bind (rid article date title content author format status
                        global-id
@@ -504,7 +509,7 @@
                        article-revision submitter-ip user-agent
                        &rest args)
       comment-revision-data
-    (declare (ignore args crid status format submitter-ip user-agent))
+    (declare (ignore args status format submitter-ip user-agent))
     (destructuring-bind (author-name author-website)
         (query "SELECT name, website FROM users WHERE id = $1"
                author
@@ -515,6 +520,9 @@
                             article-revision
                             :single!)))
         (list :publishing-date date
+              :revision-id crid
+              :comment-id comment
+              :article-revision article-revision
               :body (format-comment-content content)
               :author author-name
               ;;FIXME
@@ -792,6 +800,54 @@
   (assert (and (char= (char string 0)                    #\{)
                (char= (char string (1- (length string))) #\})))
   (parse-row-or-array string))
+
+(defun find-comment-moderation-handler (path params
+                                        &optional
+                                        action
+                                        (characteristics
+                                         *requested-characteristics*))
+  (declare (ignore characteristics action))
+  (when (string= path "admin/comments")
+    (dynamic-lambda (*propagated-params*) ()
+      (with-authorization (user-id :require :admin)
+        (declare (ignore user-id))
+        (with-db
+          (when-let (status
+                     (cond
+                       ((assoc "mark-as-spam" params :test #'equal) "spam")
+                       ((assoc "reject"       params :test #'equal) "rejected")
+                       ((assoc "approve"      params :test #'equal) "approved")
+                       (t nil)))
+            (query "UPDATE comment_revisions
+                       SET status = $2
+                     WHERE id = $1"
+                   (parse-integer (cdr (assoc "revision-id" params :test #'equal)))
+                   status
+                   :none))
+          (let* ((comments (query "SELECT *
+                                     FROM comment_revisions
+                                    WHERE status IN ('pending')"
+                                  :rows))
+                 (comment-data (mapcar #'paramify-comment comments))
+                 (comment-data-with-article-data
+                  (mapcar (lambda (comment)
+                            (let ((revision (query "SELECT *
+                                                      FROM article_revisions
+                                                     WHERE id = $1"
+                                                   (getf comment :article-revision)
+                                                   :row)))
+                              (list* :article (paramify-article revision)
+                                     comment)))
+                          comment-data)))
+            (expand-page (template "comment_moderation_page")
+                         "Comments Awaiting Moderation"
+                         (list :spam-label "Mark as spam"
+                               :reject-label "Reject"
+                               :approve-label "Approve"
+                               :site-name *site-name*
+                               :title "Comments Awaiting Moderation"
+                               :comments comment-data-with-article-data))))))))
+
 
 (defun find-article-summary-handler (path params
                                      &optional
@@ -1153,9 +1209,8 @@
                                                       (list "lang" "hl")
                                                       :test #'equal))
                                             params)))
-    (or (find-article-summary-handler
-         path
-         params)
+    (or (find-article-summary-handler path params)
+        (find-comment-moderation-handler path params)
         (find-journal-archive-request-handler
          path
          (assoc "full" params :test #'equal)

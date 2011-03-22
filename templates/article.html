@@ -44,15 +44,7 @@
   <h2>{comments-heading|html}</h2>
 
   {.repeated section comments}
-    <div class="comment">
-      <div class="comment-header">
-        {publishing-date|html-human-date}
-        <a rel="nofollow" {.section author-link}href="{@|html-attr-value}"{.end}>{.section author}{@|html}{.or}{generic-commenter-name|html}{.end}</a>:
-      </div>
-      <div class="comment-body">
-        {body}
-      </div>
-    </div>
+    {@|comment-html}
   {.end}
 
   {.section comment-submission}
