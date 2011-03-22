@@ -240,7 +240,8 @@
                   path)))
       (ecase action
         (:index "")
-        (:full-index "/?full")
+        (:journal-index "/journal")
+        (:full-journal-index "/journal?full")
         (:view-atom-feed (values "/feed"))
         (:view-comment-feed (cond (article-id (values "/~A?comment-feed" article-base))
                                   (t "/comment-feed")))
@@ -596,8 +597,10 @@
                              :root *base-uri*
                              :site-name *site-name*
                              :site-subtitle ""
-                             :link ""
-                             :full-archive-link ""
+                             :link (link-to :journal-index
+                                            :absolute t)
+                             :full-archive-link (link-to :full-journal-index
+                                                         :absolute t)
                              :full-archive-label "Full archive (slow!)"
                              :archive-title "Older posts"
                              :archive-table-caption "Posts by date"
@@ -1163,6 +1166,8 @@
                  (expand-page page-template
                               (getf article-params :title)
                               (list* :articles (list article-params)
+                                     :link (getf article-params :link)
+
                                      :info-messages (if submission-notice
                                                         (list submission-notice)
                                                         nil)
