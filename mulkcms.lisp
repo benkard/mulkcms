@@ -561,6 +561,33 @@
                                FROM article_revisions
                               WHERE status = 'syndicated'"
                               :single))
+                      (revisions-with-global-ids
+                       (mapcar (lambda (x)
+                                 (let ((global-id
+                                        ;; FIXME: May want to specify a
+                                        ;; stopping condition in the
+                                        ;; recursive query.
+                                        (query
+                                         "WITH RECURSIVE q(rid, rglobal_id) AS (
+                                              SELECT id, global_id
+                                                FROM article_revisions
+                                               WHERE id = $1
+                                            UNION
+                                              SELECT id, global_id FROM q
+                                                JOIN article_revision_parenthood
+                                                  ON rid = child
+                                                JOIN article_revisions
+                                                  ON parent = id
+                                          )
+                                          SELECT rglobal_id
+                                            FROM q
+                                           WHERE rglobal_id IS NOT NULL"
+                                         (getf x :revision)
+                                         :single)))
+                                   ;; NOTE: This shadows the existing
+                                   ;; :GLOBAL-ID key in X.
+                                   (list* :global-id global-id x)))
+                               revisions))
                       (template-params
                        (list :title *site-name*
                              :last-updated-date last-updated
@@ -569,7 +596,7 @@
                              :global-id *feed-global-id*
                              :authors authors
                              :feed-uri (link-to :view-atom-feed :absolute t)
-                             :articles revisions)))
+                             :articles revisions-with-global-ids)))
                  (expand-template (template "article_feed")
                                   template-params))))))))))
 
