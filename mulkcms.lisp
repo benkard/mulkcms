@@ -25,17 +25,18 @@
 (defun make-uuid ()
   ;; Taken from Mulkblog.
   "Generate a version 4 UUID according to RFC 4122, section 4.4."
-  (format nil "~(~8,'0x-~4,'0x-~4,'0x-~2,'0x~2,'0x-~12,'0x~)"
-          (random #x100000000)                ;time_low
-          (random #x10000)                    ;time_mid
-          (logior #b0100000000000000
-                  (logand #b0000111111111111
-                          (random #x10000)))  ;time_hi_and_version
-          (logior #b10000000
-                  (logand #b00111111
-                          (random #x100)))    ;clock_seq_hi_and_reserved
-          (random #x100)                      ;clock_seq_low
-          (random #x1000000000000)))
+  (let ((*random-state* (make-random-state t)))
+    (format nil "~(~8,'0x-~4,'0x-~4,'0x-~2,'0x~2,'0x-~12,'0x~)"
+            (random #x100000000)                ;time_low
+            (random #x10000)                    ;time_mid
+            (logior #b0100000000000000
+                    (logand #b0000111111111111
+                            (random #x10000)))  ;time_hi_and_version
+            (logior #b10000000
+                    (logand #b00111111
+                            (random #x100)))    ;clock_seq_hi_and_reserved
+            (random #x100)                      ;clock_seq_low
+            (random #x1000000000000))))
 
 
 (defmacro dynamic-lambda ((&rest dynvars) lambda-list &body body)

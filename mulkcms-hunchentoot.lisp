@@ -34,6 +34,7 @@
   (setq hunchentoot:*default-content-type*
         "text/html; charset=utf-8")
   (setup-handlers)
+  (setq *random-state* (make-random-state t))
   (hunchentoot:start (make-instance 'hunchentoot:acceptor
                         :port *server-port*
                         :address *server-address*)))
