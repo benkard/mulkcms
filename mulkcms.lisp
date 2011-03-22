@@ -135,6 +135,8 @@
   (setf (hunchentoot:header-out :last-modified)
         (hunchentoot:rfc-1123-date
          (simple-date:timestamp-to-universal-time last-update)))
+  (when content-type
+    (setf (hunchentoot:content-type*) content-type))
   (when-let (date-string (hunchentoot:header-in* :if-modified-since))
     (when-let (if-modified-since (parse-http-date date-string))
       (print last-update)
@@ -168,8 +170,6 @@
                              charhashnum
                              path
                              :row)))
-    (when content-type
-      (setf (hunchentoot:content-type*) content-type))
     (if (and cached-data (simple-date:time< last-update (second cached-data)))
         (first cached-data)
         (let ((generated-content (funcall thunk)))
