@@ -16,6 +16,11 @@
                *template-formatters*)))
 
 
+(defparameter *month-abbreviations*
+              '("Jan" "Feb" "Mar" "Apr" "May" "Jun"
+                "Jul" "Aug" "Sep" "Oct" "Nov" "Dec"))
+
+
 (defun make-uuid ()
   ;; Taken from Mulkblog.
   "Generate a version 4 UUID according to RFC 4122, section 4.4."
@@ -85,7 +90,66 @@
       (string= "true" (apply #'akismet-check-comment comment-data)))))
 
 
+(defun parse-http-date (date-string)
+  (or (when-let (groups
+                 ;; Match rfc1123-date (the whitespace stuff),
+                 ;; rfc850-date (the hyphen stuff)
+                 (nth-value
+                  1
+                  (ppcre:scan-to-strings
+                   "\\w+, (\\d+)[- ](\\w+)[- ](\\d+) (\\d+):(\\d+):(\\d+) GMT"
+                   date-string)))
+        (simple-date:encode-timestamp
+         (let ((yr (parse-integer (elt groups 2))))
+           ;; Well.  For the two-digit year version, I'm just going to
+           ;; assume a year >= 2000.  If some clown client software
+           ;; thinks it needs to ask my server whether the site's
+           ;; content has changed since 1978 and does so using a
+           ;; two-digit year code, it deserves all the problems that
+           ;; this may cause it.
+           (if (>= yr 100)
+               yr
+               (+ 2000 yr)))
+         (1+ (position (elt groups 1) *month-abbreviations* :test #'equal))
+         (parse-integer (elt groups 0))
+         (parse-integer (elt groups 3))
+         (parse-integer (elt groups 4))
+         (parse-integer (elt groups 5))))
+      (when-let (groups
+                 ;; Match asctime-date.
+                 (nth-value
+                  1
+                  (ppcre:scan-to-strings
+                   "\\w+ (\\w+)\\s+(\\d+) (\\d+):(\\d+):(\\d+) (\\d+)"
+                   date-string)))
+        (simple-date:encode-timestamp
+         (parse-integer (elt groups 5))
+         (1+ (position (elt groups 1) *month-abbreviations* :test #'equal))
+         (parse-integer (elt groups 0))
+         (parse-integer (elt groups 2))
+         (parse-integer (elt groups 3))
+         (parse-integer (elt groups 4))))))
+
+
 (defun call-with-cache (path last-update content-type characteristics thunk)
+  (setf (hunchentoot:header-out :last-modified)
+        (hunchentoot:rfc-1123-date
+         (simple-date:timestamp-to-universal-time last-update)))
+  (when-let (date-string (hunchentoot:header-in* :if-modified-since))
+    (when-let (if-modified-since (parse-http-date date-string))
+      (print last-update)
+      (print if-modified-since)
+      ;; We need to subtract 1 second, since LAST-UPDATE will probably
+      ;; have a non-zero millisecond part, which will make the
+      ;; comparison fail in the very common case that the
+      ;; If-Modified-Since time is exactly what we previously sent as
+      ;; the Last-Modified header (which didn't include milliseconds).
+      (when (simple-date:time<= (simple-date:time-subtract
+                                 last-update
+                                 (simple-date:encode-interval :second 1))
+                                if-modified-since)
+        (setf (hunchentoot:return-code*) hunchentoot:+http-not-modified+)
+        (hunchentoot:abort-request-handler))))
   (let* ((chars       characteristics)
          (charstring  (prin1-to-string chars))
          (charbytes   (flexi-streams:string-to-octets
@@ -101,14 +165,9 @@
                                 FROM cached_pages
                                WHERE characteristic_hash = $1
                                  AND alias = $2"
-                              charhashnum
-                              path
-                              :row)))
-    (hunchentoot:handle-if-modified-since
-     (simple-date:timestamp-to-universal-time last-update))
-    (setf (hunchentoot:header-out :last-modified)
-          (hunchentoot:rfc-1123-date
-           (simple-date:timestamp-to-universal-time last-update)))
+                             charhashnum
+                             path
+                             :row)))
     (when content-type
       (setf (hunchentoot:content-type*) content-type))
     (if (and cached-data (simple-date:time< last-update (second cached-data)))
