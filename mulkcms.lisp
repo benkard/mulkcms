@@ -140,8 +140,6 @@
     (setf (hunchentoot:content-type*) content-type))
   (when-let (date-string (hunchentoot:header-in* :if-modified-since))
     (when-let (if-modified-since (parse-http-date date-string))
-      (print last-update)
-      (print if-modified-since)
       ;; We need to subtract 1 second, since LAST-UPDATE will probably
       ;; have a non-zero millisecond part, which will make the
       ;; comparison fail in the very common case that the
