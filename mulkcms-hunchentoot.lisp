@@ -13,7 +13,9 @@
          (lambda () (handle-static-file file)))))
 
 (defun dispatch-mulkcms-request (request)
-  (let* ((relative-path (subseq (script-name request) 1)))
+  (let* ((relative-path (subseq (script-name request) 1))
+         (mulkcms::*use-ssl-p* (equal (header-in* :x-use-ssl)
+                                      "true")))
     (mulkcms::find-request-handler relative-path
                                    (append (get-parameters*)
                                            (post-parameters*))

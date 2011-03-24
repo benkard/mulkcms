@@ -6,6 +6,8 @@
 
 (defvar *requested-characteristics*)
 (defvar *propagated-params*)
+(defvar *use-ssl-p*)
+(defvar *base-uri*)
 
 (unless (member "html-human-date" *template-formatters* :key #'car :test #'equal)
   (setq *template-formatters*
@@ -558,7 +560,7 @@
                        "feed" "feed/"
                        "journal/feed" "journal/feed")
                 :test #'string=)
-    (dynamic-lambda (*propagated-params*) ()
+    (dynamic-lambda (*propagated-params* *base-uri*) ()
       (with-db
         (with-cache (path
                      (query "SELECT max(date) FROM article_revisions" :single)
@@ -810,7 +812,7 @@
                                          *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/comments")
-    (dynamic-lambda (*propagated-params*) ()
+    (dynamic-lambda (*propagated-params* *base-uri*) ()
       (with-authorization (user-id :require :admin)
         (declare (ignore user-id))
         (with-db
@@ -858,7 +860,7 @@
                                       *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/articles")
-    (dynamic-lambda (*propagated-params*) ()
+    (dynamic-lambda (*propagated-params* *base-uri*) ()
       (with-authorization (user-id :require :admin)
         (with-db
           (labels ((paramify-revision-row (row article-id)
@@ -963,7 +965,7 @@
                                :single)))
       (ecase action
         (:edit
-         (dynamic-lambda (*propagated-params*) ()
+         (dynamic-lambda (*propagated-params* *base-uri*) ()
            (with-authorization (user-id :require :admin)
              (with-db
                (with-transaction ()
@@ -1062,7 +1064,7 @@
                                       :content-label "Content"
                                       :characteristics-label "Characteristics"))))))))
         (:view
-         (dynamic-lambda (*propagated-params*) ()
+         (dynamic-lambda (*propagated-params* *base-uri*) ()
            (with-db
              (with-cache (path
                           (query "SELECT max(date)
@@ -1176,7 +1178,7 @@
 
 (defun find-transaction-key-handler (path)
   (when (string= path "RPC/generate-transaction-key")
-    (dynamic-lambda (*propagated-params*) ()
+    (dynamic-lambda (*propagated-params* *base-uri*) ()
       (with-db
         (setf (hunchentoot:content-type*) "text/plain; charset=utf-8")
         (format nil "~D" (query "SELECT nextval('transaction_key_seq')" :single!))))))
@@ -1212,7 +1214,10 @@
                                               (member (car x)
                                                       (list "lang" "hl")
                                                       :test #'equal))
-                                            params)))
+                                            params))
+        (*base-uri* (if *use-ssl-p*
+                        *base-uri/plain*
+                        *base-uri/ssl*)))
     (or (find-article-summary-handler path params)
         (find-comment-moderation-handler path params)
         (find-journal-archive-request-handler
