@@ -1218,8 +1218,8 @@
                                                       :test #'equal))
                                             params))
         (*base-uri* (if *use-ssl-p*
-                        *base-uri/plain*
-                        *base-uri/ssl*)))
+                        *base-uri/ssl*
+                        *base-uri/plain*)))
     (or (find-article-summary-handler path params)
         (find-comment-moderation-handler path params)
         (find-journal-archive-request-handler
