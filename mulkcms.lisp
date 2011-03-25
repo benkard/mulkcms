@@ -141,6 +141,9 @@
          (simple-date:timestamp-to-universal-time last-update)))
   (when content-type
     (setf (hunchentoot:content-type*) content-type))
+  (when (eq (hunchentoot:request-method*) :post)
+    (return-from call-with-cache
+      (funcall thunk)))
   (when-let (date-string (hunchentoot:header-in* :if-modified-since))
     (when-let (if-modified-since (parse-http-date date-string))
       ;; We need to subtract 1 second, since LAST-UPDATE will probably
@@ -1132,8 +1135,8 @@
                                 body
                                 author
                                 (if spam-p
-                                    "pending"
-                                    "spam")
+                                    "spam"
+                                    "pending")
                                 revision
                                 (hunchentoot:real-remote-addr)
                                 (hunchentoot:user-agent)
