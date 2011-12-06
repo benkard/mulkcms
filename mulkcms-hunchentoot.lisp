@@ -1,5 +1,7 @@
 (in-package #:mulkcms-hunchentoot)
 
+(defvar *acceptor*)
+
 (defun dispatch-static-file-request (request)
   (let* ((relative-path (subseq (script-name request) 1))
          (file (merge-pathnames relative-path *static-files*)))
@@ -37,6 +39,8 @@
         "text/html; charset=utf-8")
   (setup-handlers)
   (setq *random-state* (make-random-state t))
-  (hunchentoot:start (make-instance 'hunchentoot:acceptor
-                        :port *server-port*
-                        :address *server-address*)))
+  (setq *acceptor* (make-instance 'hunchentoot:easy-acceptor
+                      :port *server-port*
+                      :address *server-address*))
+  (hunchentoot:start *acceptor*))
+
