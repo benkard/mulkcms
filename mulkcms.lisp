@@ -8,6 +8,10 @@
 (defvar *propagated-params*)
 (defvar *use-ssl-p*)
 (defvar *base-uri*)
+(defvar *user-agent*)
+(defvar *real-remote-addr*)
+(defvar *request-method*)
+(defvar *headers*)
 
 (unless (member "html-human-date" *template-formatters* :key #'car :test #'equal)
   (setq *template-formatters*
@@ -136,15 +140,17 @@
 
 
 (defun call-with-cache (path last-update content-type characteristics thunk)
-  (setf (hunchentoot:header-out :last-modified)
-        (hunchentoot:rfc-1123-date
-         (simple-date:timestamp-to-universal-time last-update)))
-  (when content-type
-    (setf (hunchentoot:content-type*) content-type))
-  (when (eq (hunchentoot:request-method*) :post)
+  (when (eq *request-method* :post)
     (return-from call-with-cache
-      (funcall thunk)))
-  (when-let (date-string (hunchentoot:header-in* :if-modified-since))
+      (let ((result (funcall thunk)))
+        (typecase result
+          (cons
+           (append (list :content-type content-type)
+                   result))
+          (t
+           (list :content-type content-type
+                 :body         result))))))
+  (when-let (date-string (cdr (assoc :if-modified-since *headers*)))
     (when-let (if-modified-since (parse-http-date date-string))
       ;; We need to subtract 1 second, since LAST-UPDATE will probably
       ;; have a non-zero millisecond part, which will make the
@@ -155,8 +161,9 @@
                                  last-update
                                  (simple-date:encode-interval :second 1))
                                 if-modified-since)
-        (setf (hunchentoot:return-code*) hunchentoot:+http-not-modified+)
-        (hunchentoot:abort-request-handler))))
+        (return-from call-with-cache
+          (list :return-code 304))   ;;304 Not Modified
+        )))
   (let* ((chars       characteristics)
          (charstring  (format nil "~A; ssl=~A"
                               (prin1-to-string chars)
@@ -177,22 +184,26 @@
                              charhashnum
                              path
                              :row)))
-    (if (and cached-data (simple-date:time< last-update (second cached-data)))
-        (first cached-data)
-        (let ((generated-content (funcall thunk)))
-          (query "DELETE FROM cached_pages
+    (list :headers `((:last-modified .
+                      ,(hunchentoot:rfc-1123-date
+                        (simple-date:timestamp-to-universal-time last-update))))
+          :content-type content-type
+          (if (and cached-data (simple-date:time< last-update (second cached-data)))
+              (first cached-data)
+              (let ((generated-content (funcall thunk)))
+                (query "DELETE FROM cached_pages
                    WHERE characteristic_hash = $1
                      AND alias = $2"
-                 charhashnum
-                 path
-                 :none)
-          (query "INSERT INTO cached_pages(characteristic_hash, alias, content)
+                       charhashnum
+                       path
+                       :none)
+                (query "INSERT INTO cached_pages(characteristic_hash, alias, content)
                     VALUES ($1, $2, $3)"
-                 charhashnum
-                 path
-                 generated-content
-                 :none)
-          generated-content))))
+                       charhashnum
+                       path
+                       generated-content
+                       :none)
+                generated-content)))))
 
 
 (defmacro with-cache ((path last-update &optional content-type characteristics)
@@ -565,7 +576,8 @@
                        "feed" "feed/"
                        "journal/feed" "journal/feed")
                 :test #'string=)
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p* *request-method*
+                     *headers*) ()
       (with-db
         (with-cache (path
                      (query "SELECT max(date) FROM article_revisions" :single)
@@ -1069,7 +1081,8 @@
                                       :content-label "Content"
                                       :characteristics-label "Characteristics"))))))))
         (:view
-         (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+         (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p* *headers*
+                          *real-remote-addr* *user-agent* *request-method*) ()
            (with-db
              (with-cache (path
                           (query "SELECT max(date)
@@ -1109,8 +1122,8 @@
                                             (not (hashcash-hash-validp
                                                   (format nil "~A:~A:~A" body tkey salt))))
                                         (spamp/akismet body name website
-                                                       (hunchentoot:real-remote-addr)
-                                                       (hunchentoot:user-agent)))))
+                                                       *real-remote-addr*
+                                                       *user-agent*))))
                      (with-transaction ()
                        (let ((comment (query "INSERT INTO comments(article, global_id)
                                               VALUES ($1, $2)
@@ -1138,8 +1151,8 @@
                                     "spam"
                                     "pending")
                                 revision
-                                (hunchentoot:real-remote-addr)
-                                (hunchentoot:user-agent)
+                                *real-remote-addr*
+                                *user-agent*
                                 :none)
                          (setq submission-notice
                                (cond
@@ -1185,8 +1198,10 @@
   (when (string= path "RPC/generate-transaction-key")
     (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
       (with-db
-        (setf (hunchentoot:content-type*) "text/plain; charset=utf-8")
-        (format nil "~D" (query "SELECT nextval('transaction_key_seq')" :single!))))))
+        (list :content-type "text/plain; charset=utf-8"
+              :body         (format nil "~D"
+                                    (query "SELECT nextval('transaction_key_seq')"
+                                           :single!)))))))
 
 
 (defun keywordify (thing)
