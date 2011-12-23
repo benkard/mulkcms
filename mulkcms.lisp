@@ -219,10 +219,6 @@
                     (lambda () ,@body)))
 
 
-(defun invalidate-cache ()
-  (with-db (query "DELETE FROM cached_pages")))
-
-
 (defun find-canonical-article-alias (article)
   (query "SELECT alias FROM article_aliases WHERE article = $1 LIMIT 1"
          article
@@ -292,6 +288,9 @@
 
 (defmacro with-db (&body body)
   `(call-with-db (lambda () ,@body)))
+
+(defun invalidate-cache ()
+  (with-db (query "DELETE FROM cached_pages")))
 
 (defun find-template (template-name)
   (first (directory (make-pathname :name template-name
