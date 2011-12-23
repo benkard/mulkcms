@@ -192,13 +192,13 @@
               (first cached-data)
               (let ((generated-content (funcall thunk)))
                 (query "DELETE FROM cached_pages
-                   WHERE characteristic_hash = $1
-                     AND alias = $2"
+                              WHERE characteristic_hash = $1
+                                AND alias = $2"
                        charhashnum
                        path
                        :none)
                 (query "INSERT INTO cached_pages(characteristic_hash, alias, content)
-                    VALUES ($1, $2, $3)"
+                             VALUES ($1, $2, $3)"
                        charhashnum
                        path
                        generated-content
