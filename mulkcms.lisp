@@ -194,6 +194,7 @@
                          (simple-date:timestamp-to-universal-time last-update))
                         :format local-time:+rfc-1123-format+)))
           :content-type content-type
+          :body
           (if (and cached-data (simple-date:time< last-update (second cached-data)))
               (first cached-data)
               (let ((generated-content (funcall thunk)))
