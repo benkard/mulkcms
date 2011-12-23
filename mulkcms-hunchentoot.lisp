@@ -14,6 +14,9 @@
          (not (directory-pathname-p file))
          (lambda () (handle-static-file file)))))
 
+(defun handle-authorization-page ()
+  (hunchentoot:require-authorization "MulkCMS"))
+
 (defun dispatch-mulkcms-request (request)
   (let* ((relative-path (subseq (script-name request) 1))
          (mulkcms::*use-ssl-p* (equal (header-in* :x-use-ssl)
@@ -25,26 +28,31 @@
          (mulkcms::*request-method*
           (hunchentoot:request-method*))
          (mulkcms::*headers*
-          (hunchentoot::headers-in*)))
-    (let ((result (mulkcms::find-request-handler relative-path
-                                                 (append (get-parameters*)
-                                                         (post-parameters*))
-                                                 (header-in* :accept-language))))
-      (typecase result
-        (cons
-         (when-let (content-type (getf result :content-type))
-           (setf (hunchentoot:content-type*) content-type))
-         (when-let (headers (getf result :headers))
-           (dolist (header headers)
-             (setf (hunchentoot:header-out (car header))
-                   (cdr header))))
-         (when-let (return-code (getf result :return-code))
-           (setf (hunchentoot:return-code*) return-code)
-           ;;(hunchentoot:abort-request-handler)
-           )
-         (getf result :body))
-        (t
-         result)))))
+          (hunchentoot::headers-in*))
+         (mulkcms::*authorization-page-handler*
+          #'handle-authorization-page))
+    (multiple-value-bind
+          (mulkcms::*user-name* mulkcms::*password*)
+        (hunchentoot:authorization)
+      (let ((result (mulkcms::find-request-handler relative-path
+                                                   (append (get-parameters*)
+                                                           (post-parameters*))
+                                                   (header-in* :accept-language))))
+        (typecase result
+          (cons
+           (when-let (content-type (getf result :content-type))
+             (setf (hunchentoot:content-type*) content-type))
+           (when-let (headers (getf result :headers))
+             (dolist (header headers)
+               (setf (hunchentoot:header-out (car header))
+                     (cdr header))))
+           (when-let (return-code (getf result :return-code))
+             (setf (hunchentoot:return-code*) return-code)
+             ;;(hunchentoot:abort-request-handler)
+             )
+           (getf result :body))
+          (t
+           result))))))
 
 (defun setup-handlers ()
   (setq *dispatch-table*

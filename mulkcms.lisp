@@ -12,6 +12,9 @@
 (defvar *real-remote-addr*)
 (defvar *request-method*)
 (defvar *headers*)
+(defvar *user-name*)
+(defvar *password*)
+(defvar *authorization-page-handler*)
 
 (unless (member "html-human-date" *template-formatters* :key #'car :test #'equal)
   (setq *template-formatters*
@@ -577,7 +580,7 @@
                        "journal/feed" "journal/feed")
                 :test #'string=)
     (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p* *request-method*
-                     *headers*) ()
+                     *headers* *user-name* *password*) ()
       (with-db
         (with-cache (path
                      (query "SELECT max(date) FROM article_revisions" :single)
@@ -761,27 +764,25 @@
                             ,@options))
 
 (defun call-with-authorization (thunk &key require)
-  (multiple-value-bind (user-name password)
-      (hunchentoot:authorization)
-    (with-db
-      (let ((user-id (query (format nil
-                                    "SELECT id
-                                       FROM users u
-                                       JOIN passwords p ON u.id = p.user
-                                      WHERE p.password = $2
-                                        AND u.name = $1
-                                        AND ~A"
-                                    (ecase require
-                                      ((nil) "true")
-                                      ((:admin) "u.status = 'admin'")
-                                      ((:trusted) "u.status IN ('trusted', 'admin')")
-                                      ((:approved) "u.status IN ('approved', 'trusted', 'admin')")))
-                            user-name
-                            password
-                            :single)))
-        (if user-id
-            (funcall thunk user-id)
-            (hunchentoot:require-authorization "MulkCMS"))))))
+  (with-db
+    (let ((user-id (query (format nil
+                                  "SELECT id
+                                     FROM users u
+                                     JOIN passwords p ON u.id = p.user
+                                    WHERE p.password = $2
+                                      AND u.name = $1
+                                      AND ~A"
+                                  (ecase require
+                                    ((nil) "true")
+                                    ((:admin) "u.status = 'admin'")
+                                    ((:trusted) "u.status IN ('trusted', 'admin')")
+                                    ((:approved) "u.status IN ('approved', 'trusted', 'admin')")))
+                          *user-name*
+                          *password*
+                          :single)))
+      (if user-id
+          (funcall thunk user-id)
+          (funcall *authorization-page-handler*)))))
 
 (defun parse-row-or-array (string)
   (let ((output (list)))
@@ -829,7 +830,8 @@
                                          *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/comments")
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri*
+                     *use-ssl-p*) ()
       (with-authorization (user-id :require :admin)
         (declare (ignore user-id))
         (with-db
@@ -877,7 +879,7 @@
                                       *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/articles")
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri* *use-ssl-p*) ()
       (with-authorization (user-id :require :admin)
         (with-db
           (labels ((paramify-revision-row (row article-id)
@@ -982,7 +984,7 @@
                                :single)))
       (ecase action
         (:edit
-         (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+         (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri* *use-ssl-p*) ()
            (with-authorization (user-id :require :admin)
              (with-db
                (with-transaction ()
@@ -1082,7 +1084,8 @@
                                       :characteristics-label "Characteristics"))))))))
         (:view
          (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p* *headers*
-                          *real-remote-addr* *user-agent* *request-method*) ()
+                          *real-remote-addr* *user-agent* *request-method*
+                          *user-name* *password*) ()
            (with-db
              (with-cache (path
                           (query "SELECT max(date)
@@ -1196,7 +1199,7 @@
 
 (defun find-transaction-key-handler (path)
   (when (string= path "RPC/generate-transaction-key")
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri* *use-ssl-p*) ()
       (with-db
         (list :content-type "text/plain; charset=utf-8"
               :body         (format nil "~D"
