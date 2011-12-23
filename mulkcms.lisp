@@ -188,8 +188,10 @@
                              path
                              :row)))
     (list :headers `((:last-modified .
-                      ,(hunchentoot:rfc-1123-date
-                        (simple-date:timestamp-to-universal-time last-update))))
+                      ,(local-time:format-timestring
+                        nil
+                        (simple-date:timestamp-to-universal-time last-update)
+                        :format local-time:+rfc-1123-format+)))
           :content-type content-type
           (if (and cached-data (simple-date:time< last-update (second cached-data)))
               (first cached-data)
