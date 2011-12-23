@@ -32,25 +32,27 @@
     (multiple-value-bind
           (mulkcms::*user-name* mulkcms::*password*)
         (hunchentoot:authorization)
-      (let ((result (mulkcms::find-request-handler relative-path
-                                                   (append (get-parameters*)
-                                                           (post-parameters*))
-                                                   (header-in* :accept-language))))
-        (typecase result
-          (cons
-           (when-let (content-type (getf result :content-type))
-             (setf (hunchentoot:content-type*) content-type))
-           (when-let (headers (getf result :headers))
-             (dolist (header headers)
-               (setf (hunchentoot:header-out (car header))
-                     (cdr header))))
-           (when-let (return-code (getf result :return-code))
-             (setf (hunchentoot:return-code*) return-code)
-             ;;(hunchentoot:abort-request-handler)
-             )
-           (getf result :body))
-          (t
-           result))))))
+      (let ((handler (mulkcms::find-request-handler relative-path
+                                                    (append (get-parameters*)
+                                                            (post-parameters*))
+                                                    (header-in* :accept-language))))
+        (lambda ()
+          (let ((result (funcall handler)))
+            (typecase result
+              (cons
+               (when-let (content-type (getf result :content-type))
+                 (setf (hunchentoot:content-type*) content-type))
+               (when-let (headers (getf result :headers))
+                 (dolist (header headers)
+                   (setf (hunchentoot:header-out (car header))
+                         (cdr header))))
+               (when-let (return-code (getf result :return-code))
+                 (setf (hunchentoot:return-code*) return-code)
+                 ;;(hunchentoot:abort-request-handler)
+                 )
+               (getf result :body))
+              (t
+               result))))))))
 
 (defun setup-handlers ()
   (setq *dispatch-table*

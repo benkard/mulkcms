@@ -2,7 +2,7 @@
 
 (defparameter *database-connection-spec*
   (list *database-name* *database-user* *database-password* *database-host*
-        :pooled-p t :use-ssl :try))
+        :pooled-p t :use-ssl :no))
 
 (defvar *requested-characteristics*)
 (defvar *propagated-params*)
