@@ -28,9 +28,7 @@
          (mulkcms::*request-method*
           (hunchentoot:request-method*))
          (mulkcms::*headers*
-          (hunchentoot::headers-in*))
-         (mulkcms::*authorization-page-handler*
-          #'handle-authorization-page))
+          (hunchentoot::headers-in*)))
     (multiple-value-bind
           (mulkcms::*user-name* mulkcms::*password*)
         (hunchentoot:authorization)
@@ -73,5 +71,6 @@
   (setq *acceptor* (make-instance 'hunchentoot:easy-acceptor
                       :port *server-port*
                       :address *server-address*))
+  (setq mulkcms::*authorization-page-handler* #'handle-authorization-page)
   (hunchentoot:start *acceptor*))
 
