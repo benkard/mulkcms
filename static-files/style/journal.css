@@ -48,6 +48,11 @@ html {
   text-align: center;
 }
 
+#main-button-bar {
+  text-align: right;
+  align: right;
+}
+
 #main-title-box {
 }
 
@@ -89,8 +94,21 @@ html {
   text-align: justify;
 }
 
+/*
 .article-body p {
   text-indent: 1em;
+}
+*/
+
+.article-body p {
+  margin-bottom: 0.2em;
+}
+.article-body p + p {
+  text-indent: 1.5em;
+  margin-top: 0;
+}
+.article-body {
+  margin-bottom: 1em;
 }
 
 .article-body pre {
@@ -115,26 +133,26 @@ img.article-portrait {
   clear: both;
 }
 
-.journal-comments h2 {
+.comments h2 {
   width: 80%;
 }
 
-.journal-comment {
+.comment {
   margin-top: 1em;
   border: 1px solid #aaa;
   padding: 0.5em 0.5em 0.5em 0.5em;
 }
 
-.journal-comment-header {
+.comment-header {
   margin-bottom: 1em;
 }
 
-.journal-comment-body {
+.comment-body {
   text-align: justify;
   text-indent: 1em;
 }
 
-.journal-comment-body blockquote {
+.comment-body blockquote {
   font-style: oblique;
 }
 
