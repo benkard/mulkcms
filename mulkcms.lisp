@@ -2,12 +2,19 @@
 
 (defparameter *database-connection-spec*
   (list *database-name* *database-user* *database-password* *database-host*
-        :pooled-p t :use-ssl :try))
+        :pooled-p t :use-ssl :no))
 
 (defvar *requested-characteristics*)
 (defvar *propagated-params*)
 (defvar *use-ssl-p*)
 (defvar *base-uri*)
+(defvar *user-agent*)
+(defvar *real-remote-addr*)
+(defvar *request-method*)
+(defvar *headers*)
+(defvar *user-name*)
+(defvar *password*)
+(defvar *authorization-page-handler*)
 
 (unless (member "html-human-date" *template-formatters* :key #'car :test #'equal)
   (setq *template-formatters*
@@ -136,15 +143,17 @@
 
 
 (defun call-with-cache (path last-update content-type characteristics thunk)
-  (setf (hunchentoot:header-out :last-modified)
-        (hunchentoot:rfc-1123-date
-         (simple-date:timestamp-to-universal-time last-update)))
-  (when content-type
-    (setf (hunchentoot:content-type*) content-type))
-  (when (eq (hunchentoot:request-method*) :post)
+  (when (eq *request-method* :post)
     (return-from call-with-cache
-      (funcall thunk)))
-  (when-let (date-string (hunchentoot:header-in* :if-modified-since))
+      (let ((result (funcall thunk)))
+        (typecase result
+          (cons
+           (append (list :content-type content-type)
+                   result))
+          (t
+           (list :content-type content-type
+                 :body         result))))))
+  (when-let (date-string (cdr (assoc :if-modified-since *headers*)))
     (when-let (if-modified-since (parse-http-date date-string))
       ;; We need to subtract 1 second, since LAST-UPDATE will probably
       ;; have a non-zero millisecond part, which will make the
@@ -155,8 +164,9 @@
                                  last-update
                                  (simple-date:encode-interval :second 1))
                                 if-modified-since)
-        (setf (hunchentoot:return-code*) hunchentoot:+http-not-modified+)
-        (hunchentoot:abort-request-handler))))
+        (return-from call-with-cache
+          (list :return-code 304))   ;;304 Not Modified
+        )))
   (let* ((chars       characteristics)
          (charstring  (format nil "~A; ssl=~A"
                               (prin1-to-string chars)
@@ -177,32 +187,36 @@
                              charhashnum
                              path
                              :row)))
-    (if (and cached-data (simple-date:time< last-update (second cached-data)))
-        (first cached-data)
-        (let ((generated-content (funcall thunk)))
-          (query "DELETE FROM cached_pages
-                   WHERE characteristic_hash = $1
-                     AND alias = $2"
-                 charhashnum
-                 path
-                 :none)
-          (query "INSERT INTO cached_pages(characteristic_hash, alias, content)
-                    VALUES ($1, $2, $3)"
-                 charhashnum
-                 path
-                 generated-content
-                 :none)
-          generated-content))))
+    (list :headers `((:last-modified .
+                      ,(local-time:format-timestring
+                        nil
+                        (local-time:universal-to-timestamp
+                         (simple-date:timestamp-to-universal-time last-update))
+                        :format local-time:+rfc-1123-format+)))
+          :content-type content-type
+          :body
+          (if (and cached-data (simple-date:time< last-update (second cached-data)))
+              (first cached-data)
+              (let ((generated-content (funcall thunk)))
+                (query "DELETE FROM cached_pages
+                              WHERE characteristic_hash = $1
+                                AND alias = $2"
+                       charhashnum
+                       path
+                       :none)
+                (query "INSERT INTO cached_pages(characteristic_hash, alias, content)
+                             VALUES ($1, $2, $3)"
+                       charhashnum
+                       path
+                       generated-content
+                       :none)
+                generated-content)))))
 
 
 (defmacro with-cache ((path last-update &optional content-type characteristics)
                       &body body)
   `(call-with-cache ,path ,last-update ,content-type ,characteristics
                     (lambda () ,@body)))
-
-
-(defun invalidate-cache ()
-  (with-db (query "DELETE FROM cached_pages")))
 
 
 (defun find-canonical-article-alias (article)
@@ -274,6 +288,9 @@
 
 (defmacro with-db (&body body)
   `(call-with-db (lambda () ,@body)))
+
+(defun invalidate-cache ()
+  (with-db (query "DELETE FROM cached_pages")))
 
 (defun find-template (template-name)
   (first (directory (make-pathname :name template-name
@@ -565,7 +582,8 @@
                        "feed" "feed/"
                        "journal/feed" "journal/feed")
                 :test #'string=)
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p* *request-method*
+                     *headers* *user-name* *password*) ()
       (with-db
         (with-cache (path
                      (query "SELECT max(date) FROM article_revisions" :single)
@@ -749,27 +767,25 @@
                             ,@options))
 
 (defun call-with-authorization (thunk &key require)
-  (multiple-value-bind (user-name password)
-      (hunchentoot:authorization)
-    (with-db
-      (let ((user-id (query (format nil
-                                    "SELECT id
-                                       FROM users u
-                                       JOIN passwords p ON u.id = p.user
-                                      WHERE p.password = $2
-                                        AND u.name = $1
-                                        AND ~A"
-                                    (ecase require
-                                      ((nil) "true")
-                                      ((:admin) "u.status = 'admin'")
-                                      ((:trusted) "u.status IN ('trusted', 'admin')")
-                                      ((:approved) "u.status IN ('approved', 'trusted', 'admin')")))
-                            user-name
-                            password
-                            :single)))
-        (if user-id
-            (funcall thunk user-id)
-            (hunchentoot:require-authorization "MulkCMS"))))))
+  (with-db
+    (let ((user-id (query (format nil
+                                  "SELECT id
+                                     FROM users u
+                                     JOIN passwords p ON u.id = p.user
+                                    WHERE p.password = $2
+                                      AND u.name = $1
+                                      AND ~A"
+                                  (ecase require
+                                    ((nil) "true")
+                                    ((:admin) "u.status = 'admin'")
+                                    ((:trusted) "u.status IN ('trusted', 'admin')")
+                                    ((:approved) "u.status IN ('approved', 'trusted', 'admin')")))
+                          *user-name*
+                          *password*
+                          :single)))
+      (if user-id
+          (funcall thunk user-id)
+          (funcall *authorization-page-handler*)))))
 
 (defun parse-row-or-array (string)
   (let ((output (list)))
@@ -817,7 +833,8 @@
                                          *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/comments")
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri*
+                     *use-ssl-p*) ()
       (with-authorization (user-id :require :admin)
         (declare (ignore user-id))
         (with-db
@@ -865,7 +882,7 @@
                                       *requested-characteristics*))
   (declare (ignore characteristics action))
   (when (string= path "admin/articles")
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri* *use-ssl-p*) ()
       (with-authorization (user-id :require :admin)
         (with-db
           (labels ((paramify-revision-row (row article-id)
@@ -970,7 +987,7 @@
                                :single)))
       (ecase action
         (:edit
-         (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+         (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri* *use-ssl-p*) ()
            (with-authorization (user-id :require :admin)
              (with-db
                (with-transaction ()
@@ -1069,7 +1086,9 @@
                                       :content-label "Content"
                                       :characteristics-label "Characteristics"))))))))
         (:view
-         (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+         (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p* *headers*
+                          *real-remote-addr* *user-agent* *request-method*
+                          *user-name* *password*) ()
            (with-db
              (with-cache (path
                           (query "SELECT max(date)
@@ -1109,8 +1128,8 @@
                                             (not (hashcash-hash-validp
                                                   (format nil "~A:~A:~A" body tkey salt))))
                                         (spamp/akismet body name website
-                                                       (hunchentoot:real-remote-addr)
-                                                       (hunchentoot:user-agent)))))
+                                                       *real-remote-addr*
+                                                       *user-agent*))))
                      (with-transaction ()
                        (let ((comment (query "INSERT INTO comments(article, global_id)
                                               VALUES ($1, $2)
@@ -1138,8 +1157,8 @@
                                     "spam"
                                     "pending")
                                 revision
-                                (hunchentoot:real-remote-addr)
-                                (hunchentoot:user-agent)
+                                *real-remote-addr*
+                                *user-agent*
                                 :none)
                          (setq submission-notice
                                (cond
@@ -1183,10 +1202,12 @@
 
 (defun find-transaction-key-handler (path)
   (when (string= path "RPC/generate-transaction-key")
-    (dynamic-lambda (*propagated-params* *base-uri* *use-ssl-p*) ()
+    (dynamic-lambda (*user-name* *password* *propagated-params* *base-uri* *use-ssl-p*) ()
       (with-db
-        (setf (hunchentoot:content-type*) "text/plain; charset=utf-8")
-        (format nil "~D" (query "SELECT nextval('transaction_key_seq')" :single!))))))
+        (list :content-type "text/plain; charset=utf-8"
+              :body         (format nil "~D"
+                                    (query "SELECT nextval('transaction_key_seq')"
+                                           :single!)))))))
 
 
 (defun keywordify (thing)

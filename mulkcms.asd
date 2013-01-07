@@ -10,7 +10,8 @@
   :version "0.0.1"
   :depends-on (:cl-who :cl-json :alexandria :postmodern :split-sequence
                :cl-ppcre :cl-fad :cxml :json-template :cxml-stp
-               :ironclad :flexi-streams :drakma :puri :simple-date)
+               :ironclad :flexi-streams :drakma :puri :simple-date
+               :local-time)
   :components ((:file "package")
                (:file "site")
                (:file "mulkcms")
