@@ -67,7 +67,8 @@
             </div>
             <div class="comment-form-input">
               <input id="comment-form-input-{field-id|html-attr-value}"
-                     name="{field-id|html-attr-value}" type="text" />
+                     name="{field-id|html-attr-value}" type="text"
+                     {.section require-js}disabled="disabled"{.end} />
             </div>
           </div>
         {.end}
@@ -77,14 +78,14 @@
           </div>
           <div class="comment-form-input">
             <textarea id="comment-body" cols="60" rows="15"
-                      name="body"></textarea>
+                      name="body"  {.section require-js}disabled="disabled"{.end}></textarea>
           </div>
         </div>
       </div>
       <div>
         <input type="submit"
                value="{submit-button-label|html-attr-value}"
-               class="comment-submit-button" />
+               class="comment-submit-button"  {.section require-js}disabled="disabled"{.end} />
       </div>
     </form>
   {.end}

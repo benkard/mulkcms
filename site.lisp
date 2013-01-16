@@ -28,6 +28,8 @@
 ;; Otherwise, set it to NIL or comment the line out.
 (defparameter *wordpress-key* nil)
 
+(defparameter *drop-unfiltered* nil)
+
 (defparameter *default-characteristics-precedence-list*
               '((("language" . "en"))
                 (("language" . "la"))
