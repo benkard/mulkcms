@@ -91,14 +91,17 @@
 
 
 (defun use-akismet-p ()
-  (and (boundp '*wordpress-key*) *wordpress-key* t))
+  (and (boundp '*wordpress-key*) *wordpress-key*))
 
 (defun spamp/akismet (&rest comment-data)
   ;; Taken from Mulkblog.
-  (when (use-akismet-p)
-    (ignore-errors
-      (akismet-login)
-      (string= "true" (apply #'akismet-check-comment comment-data)))))
+  (cond
+    ((use-akismet-p)
+     (ignore-errors
+       (akismet-login)
+       (string= "true" (apply #'akismet-check-comment comment-data))))
+    (*drop-unfiltered* t)
+    (t nil)))
 
 
 (defun parse-http-date (date-string)
@@ -356,6 +359,8 @@
                                                           :field-label "Website")
                                                     (list :field-id "email"
                                                           :field-label "E-Mail"))
+                                      :require-js (and (not (use-akismet-p))
+                                                       *drop-unfiltered*)
                                       :body-label "Message"
                                       :submit-button-label "Submit"
                                       :title "Submit a comment"
@@ -367,18 +372,23 @@
                                               Comment format is plain
                                               text.  Use blank lines to
                                               separate paragraphs.</p>"
-                                              (if
-                                               (use-akismet-p)
-                                               "This website uses <span
-                                                class='spam-detection-method'><a
-                                                href=\"http://akismet.com/\">Akismet</a></span>
-                                                for spam detection.
-                                                E-mail addresses are
-                                                never disclosed to
-                                                anyone (including
-                                                Akismet) other than the
-                                                site owner."
-                                               ""))
+                                              (cond
+                                               ((use-akismet-p)
+                                                "This website uses <span
+                                                 class='spam-detection-method'><a
+                                                 href=\"http://akismet.com/\">Akismet</a></span>
+                                                 for spam detection.
+                                                 E-mail addresses are
+                                                 never disclosed to
+                                                 anyone (including
+                                                 Akismet) other than the
+                                                 site owner.")
+                                                (*drop-unfiltered*
+                                                 "This website uses a JavaScript-based
+                                                  spam prevention system.  Please enable
+                                                  JavaScript in your browser to post
+                                                  comments.")
+                                                (t "")))
                                       :action (link-to :post-comment
                                                        :article-id article
                                                        :absolute t)))
