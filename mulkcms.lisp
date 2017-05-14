@@ -343,7 +343,7 @@
     (list :publishing-date publishing-date
           :revision rid
           :last-updated-date date
-          :title title
+          :title (and (not (equal "" title)) title)
           :body content
           :article-id article
           :global-id global-id
