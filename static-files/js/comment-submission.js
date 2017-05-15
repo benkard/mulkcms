@@ -22,13 +22,14 @@ jQuery(function($) {
           var text = form.find('textarea').val().replace(/\s+/g, "");
           var submit_button = form.find(':submit');
           var status_message;
-          submit_button.after('<span class="hashcash-status-message">Calculating Hashcash...</span>');
+          submit_button.after('<span class="hashcash-status-message">Calculating Hashcash.  Please wait...<span id="hashcash-status-dots"></span></span>');
           status_message = form.find('.hashcash-status-message');
           status_message.fadeOut(0);
           status_message.fadeIn(200);
           submit_button.attr("disabled", true);
           var tryHashcash = function () {
             var tryRightNow = 1000;
+            $('#hashcash-status-dots').append('.');
             while (!acceptable_cashhash(Sha256.hash(text + ":" + tkey + ":" + salt))) {
               salt++;
               tryRightNow--;
