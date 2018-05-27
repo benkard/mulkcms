@@ -986,7 +986,7 @@
                                        LEFT OUTER JOIN article_publishing_dates pd
                                          ON pd.article = a.id
                                       GROUP BY a.id, pd.publishing_date
-                                      ORDER BY pd.publishing_date DESC"
+                                      ORDER BY pd.publishing_date DESC, a.id DESC"
                                     :rows))
                    (article-data (mapcar #'paramify-article-row articles)))
               (expand-page (template "article_summary_page")
