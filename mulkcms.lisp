@@ -573,13 +573,9 @@
 
 (defprepared find-journal-articles
   "SELECT article
-     FROM article_revisions
-    WHERE status IN ('published', 'syndicated')
-    GROUP BY article
-   HAVING EXISTS (SELECT 1 FROM article_aliases
-                   WHERE article = article_revisions.article
-                     AND alias LIKE 'journal/%')
-    ORDER BY min(date) DESC"
+     FROM journal_entries
+    WHERE journal = 0
+    ORDER BY index DESC"
   :column)
 
 (defun find-journal-archive-request-handler (path full-p
@@ -615,9 +611,9 @@
                   (mapcar #'paramify-article
                           (find-all-revisions characteristics
                                               "EXISTS (SELECT 1
-                                                       FROM article_aliases
-                                                      WHERE article = r.article
-                                                        AND alias LIKE 'journal/%')")))
+                                                         FROM journal_entries je
+                                                        WHERE journal = 0
+                                                          AND r.article = je.article)")))
                  (displayed-revisions (if full-p
                                           revisions
                                           (subseq revisions
@@ -934,6 +930,33 @@
                          article-id
                          user-id
                          (format nil "urn:uuid:~A" (make-uuid))))))
+            (when (assoc "create-journal-entry" params :test #'equal)
+              (with-transaction ()
+                (let* ((article-id
+                         (query "INSERT INTO articles(type) VALUES (1) RETURNING id"
+                                :single!))
+                       (article-revision-id
+                         (query "INSERT INTO article_revisions(article, title, content, author, format, status, global_id)
+                                      VALUES ($1, '', '', $2, 'html', 'draft', $3)
+                                   RETURNING id"
+                                article-id
+                                user-id
+                                (format nil "urn:uuid:~A" (make-uuid))
+                                :single!))
+                       (journal-index (query "INSERT INTO journal_entries(journal, index, article)
+                                                   SELECT 0, 1+MAX(index), $1
+                                                     FROM journal_entries
+                                                    WHERE journal = 0
+                                                RETURNING index"
+                                article-id
+                                :single!)))
+                  (query "INSERT INTO article_aliases(alias, article)
+                                 VALUES ('journal/' || ($1 :: TEXT), $2)"
+                         journal-index
+                         article-id)
+                  (query "INSERT INTO article_revision_characteristics(revision, characteristic, value)
+                               VALUES ($1, 'language', 'de')"
+                         article-revision-id))))
             (let* ((articles (query "SELECT a.id,
                                             array_agg(DISTINCT
                                                       ROW(r.id,
@@ -974,7 +997,8 @@
                                  :branch-title-label "Title"
                                  :characteristics-label "Characteristics"
                                  :date-label "Date"
-                                 :create-button-label "Add article"
+                                 :create-article-button-label "Add Article"
+                                 :create-journal-entry-button-label "Add Journal Entry"
                                  :add-alias-label "+"
                                  :articles article-data)))))))))
 

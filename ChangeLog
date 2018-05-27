@@ -1,0 +1,8 @@
+2018-05-27  Matthias Benkard  <usenet@mail.matthias.benkard.de>
+
+	* Journal entries are now kept in a separate table.  To move
+	existing journal entries over to the new schema, use the following
+	queries:
+
+	INSERT INTO journals VALUES (0, 'journal');
+	INSERT INTO journal_entries(journal, index, article) SELECT 0, trim(LEADING 'journal/%' FROM alias)::integer, article FROM article_aliases WHERE alias ~ 'journal/\d+';

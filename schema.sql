@@ -68,6 +68,22 @@ CREATE TABLE article_aliases(
   FOREIGN KEY (article) REFERENCES articles
 );
 
+CREATE TABLE journals(
+  id          INTEGER NOT NULL,
+  path_prefix VARCHAR,  --can be null to make the journal unreachable
+  PRIMARY KEY (id)
+);
+
+CREATE TABLE journal_entries(
+  journal INTEGER NOT NULL,
+  index   INTEGER NOT NULL,
+  article INTEGER NOT NULL,
+  PRIMARY KEY (journal, index),
+  FOREIGN KEY (article) REFERENCES articles,
+  FOREIGN KEY (journal) REFERENCES journals,
+  CHECK (index >= 0)
+);
+
 CREATE TABLE comments(
   id        SERIAL  NOT NULL,
   article   INTEGER NOT NULL,
