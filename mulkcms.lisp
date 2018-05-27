@@ -145,7 +145,7 @@
          (parse-integer (elt groups 4))))))
 
 
-(defun call-with-cache (path last-update content-type characteristics thunk)
+(defun call-with-cache (path last-update content-type characteristics full-p thunk)
   (when (eq *request-method* :post)
     (return-from call-with-cache
       (let ((result (funcall thunk)))
@@ -171,9 +171,10 @@
           (list :return-code 304))   ;;304 Not Modified
         )))
   (let* ((chars       characteristics)
-         (charstring  (format nil "~A; ssl=~A"
+         (charstring  (format nil "~A; ssl=~A; full=~A"
                               (prin1-to-string chars)
-                              *use-ssl-p*))
+                              *use-ssl-p*
+                              full-p))
          (charbytes   (flexi-streams:string-to-octets
                        charstring
                        :external-format :utf-8))
@@ -216,9 +217,9 @@
                 generated-content)))))
 
 
-(defmacro with-cache ((path last-update &optional content-type characteristics)
+(defmacro with-cache ((path last-update &optional content-type characteristics full-p)
                       &body body)
-  `(call-with-cache ,path ,last-update ,content-type ,characteristics
+  `(call-with-cache ,path ,last-update ,content-type ,characteristics ,full-p
                     (lambda () ,@body)))
 
 
@@ -598,7 +599,8 @@
                                  :test #'string=)
                          "application/atom+xml; charset=UTF-8"
                          "text/html; charset=UTF-8")
-                     characteristics)
+                     characteristics
+                     full-p)
           (let* (#+portable-mulkcms
                  (articles (find-journal-articles))
                  #+portable-mulkcms
