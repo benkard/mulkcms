@@ -3,4 +3,4 @@
         #:mulkcms)
   (:nicknames #:mulkcms-ht)
   (:shadow #:copy-file #:copy-stream)
-  (:export #:start-server))
+  (:export #:start-server #:run-server))

@@ -75,5 +75,12 @@
                       :port *server-port*
                       :address *server-address*))
   (setq mulkcms::*authorization-page-handler* #'handle-authorization-page)
-  (hunchentoot:start *acceptor*))
+  (hunchentoot:start *acceptor*)
+  *acceptor*)
 
+(defun run-server ()
+  (let ((acceptor (start-server)))
+    (unwind-protect
+         (loop
+           (sleep 86400))
+      (stop acceptor :soft t))))
