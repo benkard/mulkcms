@@ -4,16 +4,13 @@
   <link rel="stylesheet" type="text/css"
         href="/journal/prettify/prettify.css"/>
   <link rel="stylesheet" type="text/css"
-        href="/journal/trumbowyg/trumbowyg.min.css"/>
+        href="/journal/wymeditor/skins/seamless/skin.css"/>
   <script type="text/javascript" src="/journal/prettify/prettify.js"></script>
   <script type="text/javascript" src="/journal/prettify/lang-lisp.js"></script>
   <script type="text/javascript" src="/js/jquery.js"></script>
-  <script type="text/javascript" src="/journal/trumbowyg/trumbowyg.min.js"></script>
-  <script type="text/javascript" src="/journal/trumbowyg/trumbowyg.base64.min.js"></script>
-  <script type="text/javascript" src="/journal/trumbowyg/trumbowyg.pasteimage.min.js"></script>
-  <script type="text/javascript" src="/journal/trumbowyg/trumbowyg.preformatted.min.js"></script>
-  <script type="text/javascript" src="/journal/trumbowyg/trumbowyg.table.min.js"></script>
-  <script type="text/javascript" src="/journal/trumbowyg/trumbowyg.template.min.js"></script>
+  <script type="text/javascript" src="/js/jquery-migrate-3.0.0.min.js"></script>
+  <script type="text/javascript" src="/journal/wymeditor/jquery.wymeditor.min.js"></script>
+  <script type="text/javascript" src="/journal/wymeditor/plugins/fullscreen/jquery.wymeditor.fullscreen.js"></script>
   <script type="text/javascript" src="/js/article-editing.js"></script>
 {.end}
 
@@ -63,7 +60,7 @@
 
       <tr>
         <td></td>
-        <td><input type="submit" value="{save-button-label|html-attr-value}" name="save" /></td>
+        <td><input type="submit" value="{save-button-label|html-attr-value}" class="wymupdate" name="save" /></td>
       </tr>
     </table>
   </form>

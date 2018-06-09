@@ -1,24 +1,14 @@
-// Copyright 2017, Matthias Andreas Benkard.
+// Copyright 2017, 2018, Matthias Andreas Benkard.
 
 "use strict";
 
-jQuery(function($) {
-  $.trumbowyg.svgPath = '/journal/trumbowyg/icons.svg';
-  $('#content-field').trumbowyg({
-    btns: [
-      ['viewHTML'],
-      ['formatting'],
-      'btnGrp-semantic',
-      ['superscript', 'subscript'],
-      ['link'],
-      ['base64'],
-      'btnGrp-lists',
-      ['horizontalRule'],
-      ['removeformat'],
-      ['preformatted'],
-      ['table', 'tableAddRow', 'tableAddColumn'],
-      ['fullscreen']
-    ],
-    autogrow: true
+document.addEventListener('DOMContentLoaded', function() {
+  var $ = jQuery;
+  $(document.getElementById('content-field')).wymeditor({
+    skin: "seamless",
+    iframeBasePath: "/journal/wymeditor/iframe/pretty/",
+    postInit: function(wym) {
+      wym.fullscreen();
+    }
   });
 });
