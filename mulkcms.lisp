@@ -286,6 +286,7 @@
         (:prettify.js "/prettify/prettify.js")
         (:prettify-lisp.js "/prettify/lang-lisp.js")
         (:prettify-rust.js "/prettify/lang-rust.js")
+        (:prettify-hs.js "/prettify/lang-hs.js")
         (:pingback "/rpc")))))
 
 (defun call-with-db (thunk)
