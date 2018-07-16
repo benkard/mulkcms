@@ -622,7 +622,11 @@
                                           revisions
                                           (subseq revisions
                                                   0
-                                                  (min 5 (length revisions))))))
+                                                  (min 5 (length revisions)))))
+                 (minor-revisions (remove-if (lambda (x)
+                                               (or (null (getf x :title))
+                                                   (equal (getf x :title) "")))
+                                             revisions)))
             (cond
               ((member path '("journal" "journal/") :test #'string=)
                (let* ((page-skeleton (template "page_skeleton"))
@@ -646,13 +650,13 @@
                              page-template
                              (list* :head t
                                     :articles displayed-revisions
-                                    :minor-articles revisions
+                                    :minor-articles minor-revisions
                                     template-params)))
                       (body (expand-template
                              page-template
                              (list* :body t
                                     :articles displayed-revisions
-                                    :minor-articles revisions
+                                    :minor-articles minor-revisions
                                     template-params))))
                  (expand-template page-skeleton (list :title *site-name*
                                                       :head head
