@@ -2,7 +2,7 @@
 ### STAGE 0 ###
 ###############
 
-FROM mcreations/sbcl:1.4.1-ql-2017-12-27-mc-2018-01-17
+FROM mcreations/sbcl:1.4.1
 
 RUN sbcl --eval "\
   (progn                           \
