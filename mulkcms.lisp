@@ -1,9 +1,5 @@
 (in-package #:mulkcms)
 
-(defparameter *database-connection-spec*
-  (list *database-name* *database-user* *database-password* *database-host*
-        :pooled-p t :use-ssl :no))
-
 (defvar *requested-characteristics*)
 (defvar *propagated-params*)
 (defvar *use-ssl-p*)
@@ -290,7 +286,9 @@
         (:pingback "/rpc")))))
 
 (defun call-with-db (thunk)
-  (call-with-connection *database-connection-spec* thunk))
+  (call-with-connection (list *database-name* *database-user* *database-password* *database-host*
+                              :pooled-p t :use-ssl :no)
+                        thunk))
 
 (defmacro with-db (&body body)
   `(call-with-db (lambda () ,@body)))

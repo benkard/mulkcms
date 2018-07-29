@@ -79,6 +79,10 @@
   *acceptor*)
 
 (defun run-server ()
+  (format t "~&Loading site configuration.")
+  (load "site.lisp")
+  (format t "~&Starting site: ~A" mulkcms::*site-name*)
+  (terpri)
   (let ((acceptor (start-server)))
     (unwind-protect
          (loop
