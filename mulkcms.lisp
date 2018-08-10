@@ -324,7 +324,7 @@
             year month day hour minute second)))
 
 (defun template (template-name)
-  (parse-template-string (read-file-into-string (find-template template-name))))
+  (parse-template-string (read-file-into-string (find-template template-name) :external-format :utf-8)))
 
 (defun format-article (article-params)
   (let ((article-template (template "article")))
