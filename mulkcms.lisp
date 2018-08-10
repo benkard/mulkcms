@@ -264,8 +264,6 @@
         (:journal-index "/journal")
         (:full-journal-index "/journal?full")
         (:view-atom-feed (values "/feed"))
-        (:view-comment-feed (cond (article-id (values "/~A?comment-feed" article-base))
-                                  (t "/comment-feed")))
         (:view (cond (comment-id (values "/~A#comment-~D" article-base comment-id))
                      (article-id (values "/~A" article-base))
                      (t "/")))
@@ -395,10 +393,6 @@
                                                        :absolute t)))
           :edit-link (link-to :edit :article-id article)
           :edit-button-label "Edit"
-          :comment-feed (link-to :view-comment-feed
-                                 :article-id article
-                                 :absolute t)
-          :comment-feed-label "Comment feed"
           :comments-label (case comment-num
                             (0 "no comments")
                             (1 "1 comment")
@@ -1295,7 +1289,6 @@
          path
          params
          (cond ((assoc "edit"         params :test #'equal) :edit)
-               ((assoc "comment-feed" params :test #'equal) :view-comment-feed)
                ((assoc "atom"         params :test #'equal) :view-atom-entry)
                (t                                           :view)))
         (find-transaction-key-handler path))))
