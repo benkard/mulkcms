@@ -2,7 +2,7 @@
 ### STAGE 0 ###
 ###############
 
-FROM mcreations/sbcl:1.4.1
+FROM mcreations/sbcl:1.5.2
 
 RUN sbcl --eval "\
   (progn                           \
