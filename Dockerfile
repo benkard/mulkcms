@@ -30,7 +30,7 @@ RUN sbcl --eval "\
 ### STAGE 1 ###
 ###############
 
-FROM debian:9-slim
+FROM debian:11-slim
 
 RUN apt-get update && apt-get install -y libssl1.0 && rm -rf /var/lib/apt/lists/* && apt-get clean
 
